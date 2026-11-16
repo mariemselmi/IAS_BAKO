@@ -1,0 +1,2 @@
+# Needed only for live capture from the ESP32 receiver
+pyserial>=3.5
