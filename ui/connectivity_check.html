@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BAKO Connectivity Test Station</title>
+<style>
+/* Design rules (see UI_REVIEW.md): neutral grey base, colour only for results and
+   abnormal states, system fonts (works offline), tabular figures, small radii, no shadows. */
+:root{
+  --bg:#1a1d20; --panel:#212529; --raised:#2a2f34; --line:#363c42; --line2:#454c53;
+  --fg:#e9ecef; --fg2:#aab1b8; --fg3:#7d858d;
+  --ok:#238636; --ok-fg:#4ac26b; --bad:#c62f2f; --bad-fg:#ff7b72; --warn:#b7791f; --warn-fg:#e3b341; --act:#2f6fd6; --act-fg:#6ea8fe;
+  --ui:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"SFMono-Regular",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 var(--ui);font-variant-numeric:tabular-nums}
+body{min-height:100vh;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--act-fg);outline-offset:1px}
+
+/* Buttons */
+.btn{height:30px;padding:0 12px;border:1px solid var(--line2);border-radius:3px;background:var(--raised);cursor:pointer;white-space:nowrap}
+.btn:hover:not(:disabled){background:#333940}
+.btn:disabled{color:var(--fg3);cursor:not-allowed;background:transparent;border-color:var(--line)}
+.btn.primary{background:var(--act);border-color:var(--act);color:#fff;font-weight:600}
+.btn.primary:hover:not(:disabled){background:#3a7be0}
+.btn.xl{height:52px;min-width:210px;font-size:16px;padding:0 20px}
+.btn.xl kbd{font:11px var(--mono);border:1px solid rgba(255,255,255,.45);border-radius:2px;padding:1px 4px;margin-left:10px;font-weight:400}
+.btn.sm{height:22px;padding:0 8px;font-size:12px}
+input.in,select.in{height:28px;background:var(--bg);border:1px solid var(--line2);border-radius:3px;padding:0 8px}
+
+/* Header */
+.hd{display:flex;align-items:center;gap:22px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;padding-right:22px;border-right:1px solid var(--line)}
+.brand b{font-size:17px;font-weight:700;letter-spacing:.02em}
+.brand span{color:var(--fg2)}
+.fld{display:flex;flex-direction:column;gap:2px}
+.fld label{font-size:11px;color:var(--fg3)}
+.fld .ro{height:28px;display:flex;align-items:center}
+.sp{flex:1}
+.clock{font:13px var(--mono);color:var(--fg2)}
+.alert{display:none;padding:8px 16px;background:#3a2a12;color:#f5d48a;border-bottom:1px solid #5a4318}
+.alert.show{display:block}
+
+/* Main layout */
+.main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 430px;grid-template-rows:auto auto;gap:12px;padding:12px 16px}
+@media(max-width:1200px){.main{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;min-width:0}
+.ph{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.ph h2{margin:0;font-size:13px;font-weight:600}
+.ph .meta{color:var(--fg3);font-size:12px}
+.pb{padding:10px 12px}
+
+/* Verdict banner */
+.banner{display:grid;grid-template-columns:230px 1fr auto;align-items:center;gap:18px;padding:14px 16px;border:1px solid var(--line);border-radius:4px;background:var(--panel);position:relative;overflow:hidden}
+.banner .state{font-size:44px;font-weight:700;line-height:1;white-space:nowrap}
+.banner .title{font-size:16px;font-weight:600}
+.banner .sub{color:var(--fg2);margin-top:2px}
+.banner .prog{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--act-fg)}
+.banner.idle .state{color:var(--fg3)}
+.banner.ready .state{color:var(--fg)}
+.banner.run{border-color:var(--act)} .banner.run .state{color:var(--act-fg)}
+.banner.pass{background:var(--ok);border-color:var(--ok)}
+.banner.fail{background:var(--bad);border-color:var(--bad)}
+.banner.pass .sub,.banner.fail .sub{color:rgba(255,255,255,.85)}
+.banner.pass .btn.xl,.banner.fail .btn.xl{background:#fff;color:#111;border-color:#fff}
+
+/* What to fix */
+.fix{display:none}
+.fix.show{display:block}
+.fixrow{display:grid;grid-template-columns:52px 1fr;gap:12px;padding:10px 12px;border-top:1px solid var(--line)}
+.fixrow:first-child{border-top:0}
+.fixrow .what{font-weight:600}
+.fixrow .how{color:var(--fg2);margin-top:2px}
+.fixrow .comp{color:var(--fg3);font-size:12px;margin-top:3px}
+
+/* Result tags (text, not icons) */
+.res{display:inline-block;min-width:44px;text-align:center;font-weight:700;font-size:12px;padding:2px 6px;border-radius:2px}
+.res.pass{color:var(--ok-fg)}
+.res.fail{background:var(--bad);color:#fff}
+.res.warn{background:var(--warn);color:#fff}
+.res.run{color:var(--act-fg);font-weight:600}
+.res.none{color:var(--fg3);font-weight:400}
+
+/* Test table */
+table{width:100%;border-collapse:collapse}
+.tt th{text-align:left;font-weight:600;font-size:12px;color:var(--fg3);padding:6px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tt td{padding:6px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tt tr:last-child td{border-bottom:0}
+.tt td.n{color:var(--fg3);width:28px}
+.tt td.c{color:var(--fg2);white-space:nowrap}
+.tt td.l{color:var(--fg2);white-space:nowrap}
+.tt td.m{font-family:var(--mono);font-size:12px;white-space:nowrap;text-align:right}
+.tt td.r{width:120px;text-align:center;white-space:nowrap}
+.tt th.m{text-align:right} .tt th.r{text-align:center}
+.tt tr.fail td{background:rgba(198,47,47,.10)}
+.tt tr.warn td{background:rgba(183,121,31,.10)}
+.prov{color:var(--warn-fg);font-size:11px;margin-left:6px}
+.tt tr.manual td{border-top:1px solid var(--line2)}
+
+/* Connection map */
+.map svg{display:block;width:100%;height:auto}
+.map .node rect{fill:var(--raised);stroke:var(--line2);stroke-width:1.2}
+.map .node .t1{fill:var(--fg);font:600 11px var(--ui)}
+.map .node .t2{fill:var(--fg3);font:10px var(--ui)}
+.map .node .t3{fill:var(--fg);font:11px var(--mono)}
+.map .node.ok rect{stroke:var(--ok-fg);stroke-width:2}
+.map .node.fail rect{stroke:var(--bad-fg);stroke-width:2}
+.map .node.warn rect{stroke:var(--warn-fg);stroke-width:2}
+.map .node.dim rect{fill:none;stroke:var(--line2);stroke-dasharray:4 3}
+.map .node.dim .t1{fill:var(--fg3)}
+.map .wire{stroke:var(--fg2);stroke-width:2;fill:none}
+.map .wire.fail{stroke:var(--bad-fg);stroke-dasharray:5 4}
+.map .wire.ok{stroke:var(--ok-fg)}
+.map .wire.dim{stroke:var(--line2);stroke-width:1.5;stroke-dasharray:4 3}
+.map .wl{fill:var(--fg3);font:10px var(--ui)}
+.map .wl.fail{fill:var(--bad-fg)}
+.legend2{display:flex;gap:16px;color:var(--fg3);font-size:11px;padding:0 12px 10px}
+
+/* Battery readouts */
+.ro-grid{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+.ro-grid div{padding:8px 12px;border-right:1px solid var(--line)}
+.ro-grid div:last-child{border-right:0}
+.ro-grid span{display:block;font-size:11px;color:var(--fg3)}
+.ro-grid b{font-size:20px;font-weight:600}
+.ro-grid b small{font-size:12px;color:var(--fg2);font-weight:400;margin-left:2px}
+.ro-grid b.bad{color:var(--bad-fg)} .ro-grid b.warn{color:var(--warn-fg)}
+.kv{display:grid;grid-template-columns:1fr auto 1fr auto;gap:3px 10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px}
+.kv span{color:var(--fg3)}
+.kv b{font-weight:500;text-align:right}
+.sub-h{display:flex;justify-content:space-between;padding:8px 12px 0;font-size:12px;color:var(--fg2)}
+.sub-h b{font-weight:600;color:var(--fg)}
+.sub-h i{font-style:normal;color:var(--fg3)}
+#cellsvg{display:block;width:100%;height:auto;padding:4px 6px 0}
+.temps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:4px 12px 10px}
+.temps div{font-size:12px;color:var(--fg3)}
+.temps b{display:block;font-size:16px;font-weight:600;color:var(--fg)}
+.temps b.bad{color:var(--bad-fg)}
+
+/* Tabs */
+.tabs{grid-column:1/-1}
+.tabbar{display:flex;align-items:stretch;border-bottom:1px solid var(--line);padding:0 6px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:9px 12px;color:var(--fg2);cursor:pointer}
+.tab:hover{color:var(--fg)}
+.tab.on{color:var(--fg);border-bottom-color:var(--act-fg);font-weight:600}
+.tabbar .tools{margin-left:auto;display:flex;align-items:center;gap:6px;padding-right:6px}
+.pane{display:none;height:268px;overflow:auto}
+.pane.on{display:block}
+#timing{display:block;width:100%;height:268px}
+.et th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:600;font-size:12px;color:var(--fg3);padding:5px 10px;border-bottom:1px solid var(--line)}
+.et td{padding:4px 10px;border-bottom:1px solid var(--line);font-size:12px;white-space:nowrap}
+.et td.a{white-space:normal}
+.et td.t{font-family:var(--mono);color:var(--fg2)}
+.trace{margin:0;padding:8px 12px;font:12px/1.5 var(--mono);color:var(--fg2);white-space:pre}
+.trace .ev{color:var(--act-fg)}
+.empty{padding:28px 12px;color:var(--fg3);text-align:center}
+
+/* Status bar */
+.sb{display:flex;align-items:center;gap:8px;padding:4px 16px;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--fg2);flex-wrap:wrap}
+.sb .sep{width:1px;height:16px;background:var(--line2);margin:0 6px}
+.sb select.in{height:22px;font-size:12px;padding:0 4px}
+.sb b{color:var(--fg);font-weight:500}
+.led{width:9px;height:9px;border-radius:50%;background:#4a5158;display:inline-block}
+.led.on{background:var(--ok-fg)} .led.rp{background:var(--act-fg)} .led.err{background:var(--bad-fg)}
+.sb .stat{display:flex;gap:4px}
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <div class="brand"><b>BAKO</b><span>Connectivity test station</span></div>
+  <div class="fld"><label for="iCh">Vehicle (chassis)</label><input class="in" id="iCh" value="BK26-0146" size="12"></div>
+  <div class="fld"><label for="iModel">Model</label><select class="in" id="iModel"><option value="bee">BAKO Bee, 19 cells</option></select></div>
+  <div class="fld"><label for="iOp">Operator</label><input class="in" id="iOp" value="OP-01" size="7"></div>
+  <div class="fld"><label>Stop</label><div class="ro">Electrical integration, state C</div></div>
+  <div class="sp"></div>
+  <button class="btn" id="bClose" disabled title="Records the end of this vehicle's session at this stop">Close vehicle</button>
+  <div class="clock" id="clock"></div>
+</header>
+<div class="alert" id="msg"></div>
+
+<main class="main">
+  <div class="col">
+    <section class="banner idle" id="banner">
+      <div class="state" id="bState">NO DATA</div>
+      <div><div class="title" id="bTitle">Connect the gateway to start</div><div class="sub" id="bSub">Checks that the battery is connected and reporting correctly over CAN: 14 tests in 10 seconds.</div></div>
+      <button class="btn primary xl" id="bAction">Connect gateway</button>
+      <div class="prog" id="prog"></div>
+    </section>
+
+    <section class="panel fix" id="fixPanel">
+      <div class="ph"><h2>What to fix</h2><span class="meta" id="fixMeta"></span></div>
+      <div id="fixList"></div>
+    </section>
+
+    <section class="panel">
+      <div class="ph"><h2>Battery stage test</h2><span class="meta">Battery and BMS, CAN link, main contactor (K01 to K03)</span><span class="sp"></span><span class="meta" id="attemptMeta"></span></div>
+      <table class="tt">
+        <thead><tr><th>#</th><th>Test</th><th>Component</th><th>Limit</th><th class="m">Measured</th><th class="r">Result</th></tr></thead>
+        <tbody id="tests"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="panel map">
+      <div class="ph"><h2>Connection map</h2><span class="sp"></span><span class="meta" id="covMeta"></span></div>
+      <svg viewBox="0 0 430 205" role="img" aria-label="Connection map of monitored components">
+        <!-- wires -->
+        <line class="wire" id="wCan" x1="115" y1="48" x2="160" y2="48"/>
+        <text class="wl" id="wCanL" x="137.5" y="40" text-anchor="middle">CAN-B</text>
+        <line class="wire" id="wUsb" x1="270" y1="48" x2="315" y2="48"/>
+        <text class="wl" x="292.5" y="40" text-anchor="middle">USB</text>
+        <line class="wire" id="wChg" x1="60" y1="82" x2="60" y2="135"/>
+        <line class="wire dim" x1="195" y1="82" x2="195" y2="135"/>
+        <polyline class="wire dim" points="245,82 245,110 370,110 370,135"/>
+        <text class="wl" x="200" y="124">CAN-M</text>
+        <text class="wl" x="300" y="104">board inputs</text>
+        <!-- nodes -->
+        <g class="node" id="nBat"><rect x="5" y="14" width="110" height="68" rx="3"/>
+          <text class="t1" x="14" y="32">Battery pack</text><text class="t2" x="14" y="46">BMS, 19 cells</text>
+          <text class="t3" id="tBat" x="14" y="70">--</text></g>
+        <g class="node dim" id="nGw"><rect x="160" y="14" width="110" height="68" rx="3"/>
+          <text class="t1" x="169" y="32">Gateway</text><text class="t2" x="169" y="46">ISS board, MCP2515</text>
+          <text class="t3" id="tGw" x="169" y="70">offline</text>
+          <circle id="rxLed" cx="258" cy="27" r="4" fill="#4a5158"/></g>
+        <g class="node" id="nSt"><rect x="315" y="14" width="110" height="68" rx="3"/>
+          <text class="t1" x="324" y="32">Station</text><text class="t2" x="324" y="46">this screen</text>
+          <text class="t3" id="tSt" x="324" y="70">0 events</text></g>
+        <g class="node" id="nChg"><rect x="5" y="135" width="110" height="60" rx="3"/>
+          <text class="t1" x="14" y="153">Charge port</text><text class="t2" x="14" y="167">via battery flags</text>
+          <text class="t3" id="tChg" x="14" y="185">not tested</text></g>
+        <g class="node dim"><rect x="140" y="135" width="110" height="60" rx="3"/>
+          <text class="t1" x="149" y="153">Motor controller</text><text class="t2" x="149" y="167">OBD-II port</text>
+          <text class="t2" x="149" y="185">not monitored</text></g>
+        <g class="node dim"><rect x="315" y="135" width="110" height="60" rx="3"/>
+          <text class="t1" x="324" y="153">12 V system</text><text class="t2" x="324" y="167">DC-DC, loads, handbrake</text>
+          <text class="t2" x="324" y="185">not monitored</text></g>
+      </svg>
+      <div class="legend2"><span>Solid: monitored</span><span>Dashed: not monitored yet</span><span>Green, red: last test result</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="ph"><h2>Battery, live</h2><span class="sp"></span><span class="meta" id="batAge"></span></div>
+      <div class="ro-grid">
+        <div><span>Pack voltage</span><b id="kPack">--</b></div>
+        <div><span>Charge</span><b id="kSoc">--</b></div>
+        <div><span>Current</span><b id="kCur">--</b></div>
+        <div><span>Fault</span><b id="kFault">--</b></div>
+      </div>
+      <div class="kv" id="kv"></div>
+      <div class="sub-h"><span><b>Cell voltages</b> <i id="cellStats"></i></span><i id="cellScale"></i></div>
+      <svg id="cellsvg" viewBox="0 0 400 118"></svg>
+      <div class="sub-h"><span><b>Temperature sensors</b></span></div>
+      <div class="temps" id="temps"></div>
+    </section>
+  </div>
+
+  <section class="panel tabs">
+    <div class="tabbar">
+      <button class="tab on" data-pane="pTiming">Bus timing</button>
+      <button class="tab" data-pane="pEvents">Build record <span id="evCount">(0)</span></button>
+      <button class="tab" data-pane="pCover">Component coverage</button>
+      <button class="tab" data-pane="pTrace">CAN trace</button>
+      <div class="tools" id="recTools">
+        <button class="btn sm" id="bJson">Export JSON</button>
+        <button class="btn sm" id="bCsv">Export CSV</button>
+        <button class="btn sm" id="bRaw">Export raw CAN log</button>
+      </div>
+    </div>
+    <div class="pane on" id="pTiming"><canvas id="timing"></canvas></div>
+    <div class="pane" id="pEvents"><table class="et"><thead><tr><th>Time</th><th>Kind</th><th>Activity</th><th>Value</th><th>Expected</th><th>Result</th><th>Resource</th><th>Attempt</th></tr></thead><tbody id="events"></tbody></table><div class="empty" id="evEmpty">Nothing recorded yet. The first test opens a session for this vehicle.</div></div>
+    <div class="pane" id="pCover"><table class="et"><thead><tr><th>ID</th><th>Component</th><th>How it is checked</th><th>Status</th></tr></thead><tbody id="cover"></tbody></table></div>
+    <div class="pane" id="pTrace"><pre class="trace" id="trace"></pre></div>
+  </section>
+</main>
+
+<footer class="sb">
+  <span class="led" id="led"></span><span id="srcText">Not connected</span>
+  <span class="sep"></span>
+  <button class="btn sm" id="bConnect">Connect gateway</button>
+  <select class="in" id="baud" title="Must match the board firmware"><option value="115200" selected>115200 baud</option><option value="921600">921600 baud</option></select>
+  <button class="btn sm" id="bFile">Replay file</button>
+  <button class="btn sm" id="bDemo" title="Replays data/raw/bms_log_car_Bako.txt (page must be served over http)">Demo recording</button>
+  <select class="in" id="speed" title="Replay speed"><option value="1">x1</option><option value="5">x5</option><option value="10" selected>x10</option></select>
+  <button class="btn sm" id="bStop" disabled>Disconnect</button>
+  <input type="file" id="file" accept=".txt,.log" hidden>
+  <span class="sp"></span>
+  <span class="stat">Bus <b>250 kbit/s</b></span><span class="sep"></span>
+  <span class="stat">Frames <b id="sFrames">0</b></span><span class="sep"></span>
+  <span class="stat">Rate <b id="sRate">0</b>/s</span><span class="sep"></span>
+  <span class="stat">RX errors <b id="sErr">n/a</b></span><span class="sep"></span>
+  <span class="stat">Events <b id="sEv">0</b></span>
+</footer>
+
+<script>
+// ---------- Protocol (battery frames, verified on the real BAKO capture) ----------
+const MSG = {
+  '18FF28F4': {name:'Pack summary',   hz:10},
+  '18FE28F4': {name:'Cell min / max', hz:10},
+  '18B428F4': {name:'Temperatures',   hz:2},
+  '18FFE5F4': {name:'Charger request',hz:1},
+  '18C828F4': {name:'Cells 1 to 4',   hz:0.4},
+  '18C928F4': {name:'Cells 5 to 8',   hz:0.4},
+  '18CA28F4': {name:'Cells 9 to 12',  hz:0.4},
+  '18CB28F4': {name:'Cells 13 to 16', hz:0.4},
+  '18CC28F4': {name:'Cells 17 to 19', hz:0.4},
+};
+const IDS = Object.keys(MSG);
+const CELL_BASE = {'18C828F4':0,'18C928F4':4,'18CA28F4':8,'18CB28F4':12,'18CC28F4':16};
+
+// Limits. Cell limits from the O'CELL spec as quoted by the ISS project.
+// Spread, temperature and charge limits are provisional until BAKO confirms them.
+const N_CELLS = 19;
+const LIM = {cellMin:2500, cellMax:3750, packMin:N_CELLS*2.5, packMax:N_CELLS*3.75,
+             spreadMax:30, tMin:10, tMax:40, socWarn:20};
+const WINDOW_MS = 10000;
+const FRAME_RE = /\[(\d+)ms\]\s+ID:\s+0x([0-9A-Fa-f]+)\s+DLC:\s+(\d+)\s+Data:\s+([0-9A-Fa-f ]+)/;
+
+// ---------- State ----------
+const S = {
+  cells:Array(N_CELLS).fill(null), cellSeen:Array(N_CELLS).fill(-1),
+  temps:[null,null,null,null], tempsAbsent:[false,false,false,false], tempsSeen:-1,
+  pack:null, soc:null, cur:null, flags:null, fault:null, err:null,
+  cmax:null, cmin:null, dlim:null, chgV:null, chgA:null,
+  arrivals:{}, now:0, frames:0, raw:[], feed:[], rxErr:null, lastWall:0, lastSummary:null,
+};
+IDS.forEach(id=>S.arrivals[id]=[]);
+let events = [], attempt = 0, sessionOpen = false;
+let run = null, locked = null;       // run = active test window; locked = last final result
+let source = null;                   // 'serial' | 'replay' | null
+let serialPort = null, serialReader = null, replayTimer = null, chargeTest = null, chargeResult = null;
+let activePane = 'pTiming', evRendered = -1, lastTestsHtml = '';
+
+const $ = id => document.getElementById(id);
+const u16le = (b,i) => b[i] | (b[i+1]<<8);
+const u16be = (b,i) => (b[i]<<8) | b[i+1];
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- Decoding ----------
+function handleLine(line){
+  line = line.trim();
+  if(!line) return;
+  S.raw.push(line);
+  if(line.startsWith('#')){ const m = line.match(/rx_errors=(\d+)/); if(m) S.rxErr = +m[1]; return; }
+  const m = line.match(FRAME_RE);
+  if(!m) return;
+  const ms = +m[1];
+  const id = (parseInt(m[2],16) & 0x1FFFFFFF).toString(16).toUpperCase().padStart(8,'0');
+  const b = m[4].trim().split(/\s+/).map(h=>parseInt(h,16));
+  if(ms + 5000 < S.now){ resetTiming(); feed('board restarted, timing reset', true); }
+  S.now = Math.max(S.now, ms);
+  S.frames++; S.lastWall = performance.now();
+  feed(`[${String(ms).padStart(8)} ms]  ${id}  ${m[4].trim()}`);
+  if(!MSG[id]) return;
+  const arr = S.arrivals[id]; arr.push(ms);
+  while(arr.length && arr[0] < ms - 60000) arr.shift();
+  decode(id, b, ms);
+  if(run && S.now >= run.end) finishRun();
+  if(chargeTest) checkCharge();
+}
+
+function decode(id, b, ms){
+  if(id==='18FF28F4'){
+    S.flags=b[0]; S.soc=b[1]; S.cur=(u16le(b,2)-5000)*0.1; S.pack=u16le(b,4)*0.1; S.fault=b[6]; S.err=b[7]; S.lastSummary=ms;
+  } else if(id==='18FE28F4'){
+    S.cmax=u16le(b,0); S.cmin=u16le(b,2); S.dlim=u16le(b,6)*0.1;
+  } else if(id==='18B428F4'){
+    for(let i=0;i<4;i++){ if(b[i]===0xFF){ S.tempsAbsent[i]=true; S.temps[i]=null; } else { S.tempsAbsent[i]=false; S.temps[i]=b[i]-40; } }
+    S.tempsSeen=ms;
+  } else if(id==='18FFE5F4'){
+    S.chgV=u16le(b,0)*0.1; S.chgA=u16le(b,2)*0.1;
+  } else if(CELL_BASE[id]!==undefined){
+    const base=CELL_BASE[id];
+    for(let i=0;i<4;i++){ const n=base+i; if(n>=N_CELLS) break; const mv=u16be(b,i*2); if(mv){ S.cells[n]=mv; S.cellSeen[n]=ms; } }
+  }
+}
+function resetTiming(){ IDS.forEach(id=>S.arrivals[id]=[]); S.now=0; S.cellSeen.fill(-1); S.tempsSeen=-1; S.lastSummary=null; run=null; }
+
+// ---------- Rates and gaps ----------
+function countIn(id,t0,t1){ return S.arrivals[id].filter(t=>t>=t0&&t<=t1).length; }
+function rateIn(id,t0,t1){ const s=(t1-t0)/1000; return s>0 ? countIn(id,t0,t1)/s : 0; }
+function lastSeen(id){ const a=S.arrivals[id]; return a.length ? a[a.length-1] : null; }
+function maxGap(id,t0,t1){
+  const a=S.arrivals[id]; const pts=[]; let prev=null;
+  for(const t of a){ if(t<t0) prev=t; else if(t<=t1) pts.push(t); }
+  let gap=0, last = prev!==null ? prev : t0;
+  for(const t of pts){ gap=Math.max(gap,t-last); last=t; }
+  return Math.max(gap, t1-last);
+}
+
+// ---------- Tests ----------
+// comp = the physical part a failure points to (shown to the operator); k = component ID.
+const CHECKS = [
+  {id:'talk',    k:'K01', comp:'BMS',             name:'Battery is sending data',          exp:'at least 7 per s'},
+  {id:'ack',     k:'K02', comp:'CAN link',        name:'Messages acknowledged, no repeats', exp:'normal rates'},
+  {id:'link',    k:'K02', comp:'CAN link',        name:'All 9 message types arriving',      exp:'9 of 9'},
+  {id:'gaps',    k:'K02', comp:'CAN link',        name:'No data gaps',                      exp:'no silence over 3 periods'},
+  {id:'cells',   k:'K01', comp:'Cell sense wires',name:'All 19 cells reporting',            exp:'19 of 19'},
+  {id:'temps',   k:'K01', comp:'Temp sensors',    name:'All 4 temperature sensors present', exp:'4 of 4'},
+  {id:'packv',   k:'K01', comp:'Battery pack',    name:'Pack voltage in range',             exp:`${LIM.packMin.toFixed(1)} to ${LIM.packMax.toFixed(1)} V`},
+  {id:'cellrng', k:'K01', comp:'Battery cells',   name:'Every cell in range',               exp:`${LIM.cellMin} to ${LIM.cellMax} mV`},
+  {id:'spread',  k:'K01', comp:'Battery cells',   name:'Cells balanced',                    exp:`under ${LIM.spreadMax} mV`, prov:true},
+  {id:'temp',    k:'K01', comp:'Battery pack',    name:'Battery temperature in range',      exp:`${LIM.tMin} to ${LIM.tMax} °C`, prov:true},
+  {id:'sum',     k:'K01', comp:'Cell sense wires',name:'Pack voltage equals sum of cells',  exp:'within 1 % or 0.5 V'},
+  {id:'fault',   k:'K01', comp:'BMS',             name:'No battery fault',                  exp:'level 0, code 0'},
+  {id:'cont',    k:'K03', comp:'Main contactor',  name:'Main contactor closed',             exp:'closed'},
+  {id:'soc',     k:'K01', comp:'Battery pack',    name:'Charge level for release',          exp:`at least ${LIM.socWarn} %`, prov:true, warnOnly:true},
+];
+
+function evaluate(t0,t1){
+  const R = {};
+  const set=(id,status,val,detail)=>R[id]={status,val,detail};
+  const anyData = IDS.some(id=>countIn(id,t0,t1)>0);
+  if(!anyData){ CHECKS.forEach(c=>set(c.id,'fail','no data','No battery messages received. Check CAN-H, CAN-L and ground, that the car is on, and that the bus speed is 250 kbit/s.')); return R; }
+
+  const rFF=rateIn('18FF28F4',t0,t1);
+  rFF>=7 ? set('talk','pass',`${rFF.toFixed(1)} /s`) :
+    set('talk','fail',`${rFF.toFixed(1)} /s`, rFF===0 ? 'No battery summary messages. Check the CAN wires and that the battery management system is powered.' : 'Battery summary arrives too slowly. Check the CAN wiring and connector.');
+
+  let worst=null;
+  IDS.forEach(id=>{ const r=rateIn(id,t0,t1)/MSG[id].hz; if(r>2.5 && (!worst||r>worst.r)) worst={id,r}; });
+  worst ? set('ack','fail',`${MSG[worst.id].name} x${worst.r.toFixed(0)}`,
+      'The battery is repeating the same message because nothing on this line acknowledges it, so the other messages never arrive. Plug the charger in, or set the board firmware to MCP_NORMAL.')
+        : set('ack','pass','normal');
+
+  const missing=[], off=[];
+  IDS.forEach(id=>{ const n=countIn(id,t0,t1), exp=MSG[id].hz*(t1-t0)/1000;
+    if(n===0) missing.push(MSG[id].name); else if(n < exp*0.5) off.push(MSG[id].name); });
+  const okTypes = IDS.length - missing.length - off.length;
+  (missing.length||off.length) ? set('link','fail',`${okTypes} of 9`,
+      `${missing.length?'Missing: '+missing.join(', ')+'. ':''}${off.length?'Too slow: '+off.join(', ')+'. ':''}Check the battery CAN connector and wiring.`)
+    : set('link','pass','9 of 9');
+
+  // A message seen at any time and then silent for over 3 periods is a gap,
+  // including one that went fully silent during the window. Never-seen types are left to 'link'.
+  const gappy=[];
+  IDS.forEach(id=>{ if(lastSeen(id)===null) return; const g=maxGap(id,t0,t1); if(g > 3*1000/MSG[id].hz) gappy.push(`${MSG[id].name} ${(g/1000).toFixed(1)} s`); });
+  gappy.length ? set('gaps','fail',`${gappy.length} gap${gappy.length>1?'s':''}`, `Silent too long: ${gappy.join(', ')}. A loose connection or interference interrupted the data.`)
+               : set('gaps','pass','none');
+
+  const seen=S.cellSeen.filter(t=>t>=t0&&t<=t1).length;
+  const missingCells=[]; S.cellSeen.forEach((t,i)=>{ if(!(t>=t0&&t<=t1)) missingCells.push(i+1); });
+  seen===N_CELLS ? set('cells','pass',`${seen} of 19`)
+    : set('cells','fail',`${seen} of 19`, `No reading for cell${missingCells.length>1?'s':''} ${missingCells.join(', ')}. A cell-voltage message is missing: check the battery CAN link, or the battery management system.`);
+
+  const tFresh = S.tempsSeen>=t0;
+  const present = S.temps.filter(v=>v!==null).length;
+  if(!tFresh) set('temps','fail','no data','No temperature message received.');
+  else if(present<4){ const abs=[]; S.tempsAbsent.forEach((a,i)=>{ if(a) abs.push(i+1); }); set('temps','fail',`${present} of 4`, `Sensor ${abs.join(', ')} reports absent: unplugged or failed inside the pack.`); }
+  else set('temps','pass','4 of 4');
+
+  if(S.pack===null) set('packv','fail','no data','No pack voltage received.');
+  else (S.pack>=LIM.packMin && S.pack<=LIM.packMax) ? set('packv','pass',`${S.pack.toFixed(1)} V`)
+       : set('packv','fail',`${S.pack.toFixed(1)} V`, 'Pack voltage outside the 19-cell limits: wrong battery, deep discharge, or a decoding problem.');
+
+  const bad=[]; S.cells.forEach((v,i)=>{ if(v!==null && (v<LIM.cellMin||v>LIM.cellMax)) bad.push(`cell ${i+1} ${v} mV`); });
+  const have=S.cells.filter(v=>v!==null);
+  if(!have.length) set('cellrng','fail','no data','No cell voltages yet.');
+  else bad.length ? set('cellrng','fail',`${bad.length} out`, `${bad.join(', ')} outside ${LIM.cellMin} to ${LIM.cellMax} mV.`)
+                  : set('cellrng','pass',`${Math.min(...have)} to ${Math.max(...have)} mV`);
+
+  let spread=null;
+  if(S.cmax!==null&&S.cmin!==null) spread=S.cmax-S.cmin; else if(have.length===N_CELLS) spread=Math.max(...have)-Math.min(...have);
+  if(spread===null) set('spread','fail','no data','No cell extremes yet.');
+  else spread<LIM.spreadMax ? set('spread','pass',`${spread} mV`) : set('spread','fail',`${spread} mV`,`Cells ${spread} mV apart: imbalance. Ask BAKO before release.`);
+
+  const tv=S.temps.filter(v=>v!==null);
+  if(!tv.length) set('temp','fail','no data','No battery temperatures yet.');
+  else { const lo=Math.min(...tv), hi=Math.max(...tv);
+    (lo>=LIM.tMin&&hi<=LIM.tMax) ? set('temp','pass',`${lo} to ${hi} °C`) : set('temp','fail',`${lo} to ${hi} °C`,'Battery temperature outside the safe range.'); }
+
+  if(have.length<N_CELLS||S.pack===null) set('sum','fail','waiting','Needs all 19 cells and the pack voltage.');
+  else { const sum=have.reduce((a,b)=>a+b,0)/1000, d=Math.abs(sum-S.pack), tol=Math.max(0.5,S.pack*0.01);
+    d<=tol ? set('sum','pass',`${sum.toFixed(2)} V, diff ${d.toFixed(2)}`) : set('sum','fail',`diff ${d.toFixed(2)} V`,`The pack voltage (${S.pack.toFixed(1)} V) and the sum of the cells (${sum.toFixed(2)} V) disagree: a cell sense wire or a decoding problem.`); }
+
+  if(S.fault===null) set('fault','fail','no data','No battery status received.');
+  else (S.fault===0&&S.err===0) ? set('fault','pass','none') : set('fault','fail',`level ${S.fault}, code ${S.err}`,`The battery reports fault level ${S.fault}, error code ${S.err}. Confirm its meaning with BAKO before release.`);
+
+  if(S.flags===null) set('cont','fail','no data','No battery status received.');
+  else (S.flags&0x10) ? set('cont','pass','closed') : set('cont','fail','open','Main contactor open: the car is not switched on, or a contactor or wiring fault.');
+
+  if(S.soc===null) set('soc','warn','no data','No charge level yet.');
+  else S.soc>=LIM.socWarn ? set('soc','pass',`${S.soc} %`) : set('soc','warn',`${S.soc} %`,`Charge level ${S.soc} %: charge the battery before release.`);
+  return R;
+}
+
+// ---------- Record ----------
+function chassis(){ return $('iCh').value.trim() || 'UNKNOWN'; }
+function rec(kind, activity, value='', unit='', expected='', result='', resource='station'){
+  events.push({case_id:chassis(), timestamp:new Date().toISOString(), kind, activity, resource,
+    value:String(value), unit, expected, result, stop:'electrical integration', state:'C',
+    attempt, operator:$('iOp').value.trim(), board_ms:S.now});
+}
+function ensureSession(){ if(!sessionOpen){ sessionOpen=true; rec('session_open','Build session opened','', '', '', '', 'operator'); } }
+
+// ---------- Test run ----------
+function startRun(){
+  if(!S.frames || run) return;
+  ensureSession();
+  if(locked && locked.fail) rec('intervention','Operator marked the problem fixed','','','','', 'operator');
+  attempt++;
+  run={t0:S.now, end:S.now+WINDOW_MS};
+  locked=null;
+  rec('check_start',`Battery stage test, attempt ${attempt}`);
+}
+function finishRun(){
+  const R=evaluate(run.t0,run.end);
+  const kind = attempt>1 ? 'recheck' : 'check';
+  let fails=0, warns=0;
+  CHECKS.forEach(c=>{ const r=R[c.id]; if(r.status==='fail') fails++; if(r.status==='warn') warns++;
+    rec(kind, c.name, r.val, '', c.exp, r.status, `battery (CAN-B), ${c.k}`);
+    if(r.status==='fail') rec('anomaly', `${c.name}: ${r.detail}`, r.val, '', c.exp, 'fail', `battery (CAN-B), ${c.k}`);
+  });
+  locked={R, fail:fails>0, fails, warns, t0:run.t0, t1:run.end};
+  run=null;
+  if(!fails) rec('stage_pass','Battery stage verified','','','','pass');
+}
+
+// ---------- Charge port test (K22) ----------
+function startCharge(){ if(!source||chargeTest) return; ensureSession(); chargeTest={start:S.now, end:S.now+60000}; chargeResult=null; rec('check_start','Charge port test'); checkCharge(); }
+function checkCharge(){
+  if(!chargeTest||S.flags===null) return;
+  const cable=!!(S.flags&0x01), charging=!!(S.flags&0x02), neg=S.cur!==null&&S.cur<0;
+  if(cable&&charging&&neg){
+    rec('check','Charge port and charging',`${S.cur.toFixed(1)} A`,'A','cable flag, charging flag, negative current','pass','battery (CAN-B), K22');
+    chargeResult={status:'pass', val:`${S.cur.toFixed(1)} A`}; chargeTest=null;
+  } else if(S.now>=chargeTest.end){
+    const why=!cable?'cable not detected':!charging?'not charging':'no charging current';
+    rec('check','Charge port and charging',why,'','cable flag, charging flag, negative current','fail','battery (CAN-B), K22');
+    rec('anomaly',`Charge port test failed: ${why}. Check the charge port wiring and detection line.`,'','','','fail','battery (CAN-B), K22');
+    chargeResult={status:'fail', val:why, detail:`Charger not seen within 60 s (${why}). Check the charge port wiring and the detection line.`}; chargeTest=null;
+  }
+}
+
+// ---------- Coverage ----------
+const COMPONENTS = [
+ ['K01','Battery and BMS','Battery CAN data','now'],['K02','Battery CAN link','Battery CAN data','now'],['K03','Main contactors','Battery CAN data','now'],
+ ['K04','HV path to motor controller','Motor-controller CAN (OBD-II tap)','later'],['K05','Motor controller','Motor-controller CAN (OBD-II tap)','later'],['K06','Motor and temperature sensor','Motor-controller CAN (OBD-II tap)','later'],
+ ['K07','HV isolation','Insulation tester, BAKO staff only','later'],['K08','DC-DC converter','ISS board inputs','later'],['K09','12 V bus, relays, fuses','ISS board inputs','later'],
+ ['K10','Earth straps','Multimeter reading','later'],['K11','Harness connectors','Operator confirmation','later'],['K12','Headlights','Current-signature test','later'],
+ ['K13','Tail lights','Current-signature test','later'],['K14','Brake lights','Current-signature test','later'],['K15','Indicators','Current-signature test','later'],['K16','Horn','Current-signature test','later'],
+ ['K17','Wiper and washer','Current-signature test','later'],['K18','Dashboard','Operator confirmation','later'],['K19','Handbrake switch','ISS board inputs','later'],
+ ['K20','Key, throttle, direction','Motor-controller CAN (OBD-II tap)','later'],['K21','Solar panel and MPPT','ISS board inputs','later'],['K22','Charge port','Battery CAN flags, charger plugged in','now'],
+ ['K23','GPS module','Operator confirmation','later'],['K24','Temperature probes','ISS board inputs','later'],['K25','Gateway','Station link','now'],
+];
+function coverState(){
+  const st={};
+  if(locked){ const by={K01:[],K02:[],K03:[]}; CHECKS.forEach(c=>by[c.k].push(locked.R[c.id].status));
+    Object.entries(by).forEach(([k,a])=>st[k]=a.includes('fail')?'fail':a.includes('warn')?'warn':'pass'); }
+  if(chargeResult) st.K22=chargeResult.status;
+  if(source) st.K25 = S.frames ? 'pass' : undefined;
+  return st;
+}
+
+// ---------- Rendering ----------
+const RESTXT={pass:'PASS',fail:'FAIL',warn:'WARN'};
+function renderBanner(){
+  const B=$('banner'), A=$('bAction');
+  let cls, state, title, sub, act, dis=false, p=0;
+  if(!source){ cls='idle'; state='NO DATA'; title='Connect the gateway to start';
+    sub='Checks that the battery is connected and reporting correctly over CAN: 14 tests in 10 seconds.'; act='Connect gateway'; }
+  else if(run){ const left=Math.max(0,Math.ceil((run.end-S.now)/1000)); p=Math.min(1,(S.now-run.t0)/WINDOW_MS);
+    cls='run'; state='TESTING'; title=`Collecting battery data, ${left} s left`; sub=`Vehicle ${chassis()}, attempt ${attempt}. Keep the car on and the gateway connected.`; act='Testing'; dis=true; }
+  else if(locked && locked.fail){ cls='fail'; state='FAIL'; title=`${locked.fails} of ${CHECKS.length} tests failed`;
+    sub=`Vehicle ${chassis()}, attempt ${attempt}. Fix the items below, then re-test. Result recorded.`; act='Re-test after fix'; p=0; }
+  else if(locked){ cls='pass'; state='PASS'; title=`Battery stage verified${locked.warns?`, ${locked.warns} warning${locked.warns>1?'s':''}`:''}`;
+    sub=`Vehicle ${chassis()}, attempt ${attempt}. Result recorded in the build record.`; act='Test again'; }
+  else if(!S.frames){ cls='idle'; state='WAITING'; title='Connected, waiting for CAN data';
+    sub='No frames yet. Check that the car is on and CAN-H, CAN-L and ground are connected.'; act='Start test'; dis=true; }
+  else { cls='ready'; state='READY'; title=`Ready to test vehicle ${chassis()}`; sub='Battery data is arriving. Start the test to record a result.'; act='Start test'; }
+  B.className='banner '+cls; $('bState').textContent=state; $('bTitle').textContent=title; $('bSub').textContent=sub;
+  A.innerHTML = esc(act) + (!dis && source ? '<kbd>Space</kbd>' : '');
+  A.disabled=dis; $('prog').style.width=(p*100)+'%';
+}
+function renderTests(){
+  let R=null, mode='none';
+  if(locked){ R=locked.R; mode='final'; }
+  else if(S.frames){ R=evaluate(run?run.t0:S.now-WINDOW_MS, S.now); mode=run?'run':'preview'; }
+  const rows = CHECKS.map((c,i)=>{
+    const r=R?R[c.id]:null;
+    const st = mode==='final' ? r.status : '';
+    const res = mode==='final' ? `<span class="res ${st}">${RESTXT[st]}</span>` : mode==='run' ? '<span class="res run">testing</span>' : '<span class="res none">not run</span>';
+    return `<tr class="${st==='fail'||st==='warn'?st:''}"><td class="n">${i+1}</td><td>${c.name}${c.prov?'<span class="prov" title="Limit to be confirmed by BAKO">limit to confirm</span>':''}</td>
+      <td class="c">${c.comp}</td><td class="l">${c.exp}</td><td class="m">${r?esc(r.val):'--'}</td><td class="r">${res}</td></tr>`;
+  });
+  // Operator-guided step (K22)
+  let cRes='<span class="res none">not run</span>', cVal='--', cBtn=`<button class="btn sm" id="bCharge" ${!source||chargeTest?'disabled':''}>${chargeResult?'Repeat':'Start'}</button>`;
+  if(chargeTest){ cRes='<span class="res run">watching</span>'; cVal=`${Math.max(0,Math.ceil((chargeTest.end-S.now)/1000))} s left`; }
+  else if(chargeResult){ cRes=`<span class="res ${chargeResult.status}">${RESTXT[chargeResult.status]}</span>`; cVal=esc(chargeResult.val); }
+  rows.push(`<tr class="manual ${chargeResult&&chargeResult.status==='fail'?'fail':''}"><td class="n">15</td><td>Charge port detected <span class="prov" style="color:var(--fg3)">manual: press Start, then plug the charger in</span></td>
+    <td class="c">Charge port</td><td class="l">cable and charging flags</td><td class="m">${cVal}</td><td class="r">${cRes} ${cBtn}</td></tr>`);
+  // Only rebuild when something changed, so a click on Start is never lost to a re-render.
+  const html=rows.join('');
+  if(html!==lastTestsHtml){ lastTestsHtml=html; $('tests').innerHTML=html; $('bCharge').onclick=startCharge; }
+  $('attemptMeta').textContent = attempt ? `Attempt ${attempt}` : '';
+}
+function renderFix(){
+  const items=[];
+  if(locked) CHECKS.forEach(c=>{ const r=locked.R[c.id]; if(r.status==='fail'||r.status==='warn') items.push({st:r.status,c,r}); });
+  if(chargeResult && chargeResult.status==='fail') items.push({st:'fail', c:{name:'Charge port detected', comp:'Charge port', k:'K22'}, r:{detail:chargeResult.detail}});
+  const P=$('fixPanel');
+  if(!items.length){ P.classList.remove('show'); return; }
+  P.classList.add('show');
+  const f=items.filter(x=>x.st==='fail').length, w=items.length-f;
+  $('fixMeta').textContent=[f?`${f} problem${f>1?'s':''}`:'', w?`${w} warning${w>1?'s':''}`:''].filter(Boolean).join(', ');
+  $('fixList').innerHTML=items.map(x=>`<div class="fixrow"><div><span class="res ${x.st}">${RESTXT[x.st]}</span></div>
+    <div><div class="what">${esc(x.c.name)}</div><div class="how">${esc(x.r.detail||'')}</div><div class="comp">Points to: ${esc(x.c.comp)} (${x.c.k})</div></div></div>`).join('');
+}
+function cls(el, c){ el.setAttribute('class', c); }
+function renderMap(st){
+  const live = source && S.lastSummary!==null && (S.now - S.lastSummary) < 1500 && (performance.now()-S.lastWall) < 3000;
+  const silent = source && S.frames>0 && !live;
+  let bat='';
+  if(st.K01||st.K03) bat = (st.K01==='fail'||st.K03==='fail') ? 'fail' : st.K01==='warn' ? 'warn' : 'ok';
+  else if(silent) bat='fail';
+  cls($('nBat'), 'node '+bat);
+  $('tBat').textContent = S.pack===null ? '--' : `${S.pack.toFixed(1)} V   ${S.soc} %`;
+  const canSt = st.K02 ? (st.K02==='fail'?'fail':'ok') : silent ? 'fail' : (source && S.frames ? '' : 'dim');
+  cls($('wCan'),'wire '+canSt); cls($('wCanL'),'wl '+(canSt==='fail'?'fail':''));
+  $('wCanL').textContent = silent ? 'CAN-B, no data' : 'CAN-B';
+  cls($('nGw'),'node '+(source? '' : 'dim'));
+  $('tGw').textContent = !source ? 'offline' : source==='serial' ? 'live' : 'replay';
+  $('rxLed').setAttribute('fill', source && performance.now()-S.lastWall<120 ? '#4ac26b' : '#4a5158');
+  cls($('wUsb'),'wire '+(source?'':'dim'));
+  $('tSt').textContent = `${events.length} events`;
+  cls($('nChg'),'node '+(st.K22==='pass'?'ok':st.K22==='fail'?'fail':''));
+  cls($('wChg'),'wire '+(st.K22==='pass'?'ok':st.K22==='fail'?'fail':''));
+  $('tChg').textContent = chargeTest ? 'testing' : chargeResult ? RESTXT[chargeResult.status] : 'not tested';
+  const ready=COMPONENTS.filter(c=>c[3]==='now').length;
+  $('covMeta').textContent=`${ready} of ${COMPONENTS.length} components monitored`;
+}
+function renderBattery(){
+  const sumAge = S.lastSummary===null ? null : S.now - S.lastSummary;
+  $('batAge').textContent = sumAge===null ? 'no data' : sumAge<1500 ? 'updating' : `last data ${(sumAge/1000).toFixed(0)} s ago`;
+  $('kPack').innerHTML = S.pack===null?'--':`${S.pack.toFixed(1)}<small>V</small>`;
+  $('kPack').className = S.pack!==null && (S.pack<LIM.packMin||S.pack>LIM.packMax) ? 'bad' : '';
+  $('kSoc').innerHTML = S.soc===null?'--':`${S.soc}<small>%</small>`;
+  $('kSoc').className = S.soc!==null && S.soc<LIM.socWarn ? 'warn' : '';
+  $('kCur').innerHTML = S.cur===null?'--':`${S.cur.toFixed(1)}<small>A</small>`;
+  $('kFault').innerHTML = S.fault===null?'--':(S.fault||S.err)?`L${S.fault}<small>code ${S.err}</small>`:'none';
+  $('kFault').className = S.fault!==null && (S.fault||S.err) ? 'bad' : '';
+  const f=S.flags, on=m=>f===null?'--':(f&m)?'closed':'open', yn=m=>f===null?'--':(f&m)?'yes':'no';
+  $('kv').innerHTML=`<span>Discharge contactor</span><b>${on(0x10)}</b><span>BMS ready</span><b>${yn(0x08)}</b>
+    <span>Charge contactor</span><b>${on(0x20)}</b><span>Charge cable</span><b>${yn(0x01)}</b>
+    <span>Discharge limit</span><b>${S.dlim===null?'--':S.dlim.toFixed(0)+' A'}</b><span>Charging</span><b>${yn(0x02)}</b>`;
+  renderCells();
+  $('temps').innerHTML=S.temps.map((v,i)=>{ const out=v!==null&&(v<LIM.tMin||v>LIM.tMax);
+    return `<div>Sensor ${i+1}<b class="${out||S.tempsAbsent[i]?'bad':''}">${v===null?(S.tempsAbsent[i]?'absent':'--'):v+' °C'}</b></div>`; }).join('');
+}
+function renderCells(){
+  const svg=$('cellsvg'), W=400, H=118, L=34, T=6, B=20, cw=(W-L-4)/N_CELLS;
+  const have=S.cells.filter(v=>v!==null);
+  if(!have.length){ svg.innerHTML=`<text x="${W/2}" y="60" text-anchor="middle" fill="#7d858d" font-size="11">Waiting for cell messages (every 2.5 s)</text>`; $('cellStats').textContent=''; $('cellScale').textContent=''; return; }
+  const mn=Math.min(...have), mx=Math.max(...have), avg=have.reduce((a,b)=>a+b,0)/have.length;
+  const pad=Math.max(10,(60-(mx-mn))/2);
+  const lo=Math.floor((mn-pad)/10)*10, hi=Math.ceil((mx+pad)/10)*10;
+  const y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  let g=`<line x1="${L}" x2="${W}" y1="${y(hi)}" y2="${y(hi)}" stroke="#363c42"/><line x1="${L}" x2="${W}" y1="${y(lo)}" y2="${y(lo)}" stroke="#363c42"/>`;
+  g+=`<text x="${L-4}" y="${y(hi)+4}" text-anchor="end" fill="#7d858d" font-size="10">${hi}</text><text x="${L-4}" y="${y(lo)+3}" text-anchor="end" fill="#7d858d" font-size="10">${lo}</text>`;
+  S.cells.forEach((v,i)=>{
+    const x=L+2+i*cw;
+    const stale = v!==null && S.cellSeen[i] < S.now - 3*2500;   // cell message silent for over 3 periods
+    if(v===null || stale){ g+=`<rect x="${x+2}" y="${T}" width="${cw-4}" height="${H-T-B}" fill="none" stroke="#ff7b72" stroke-dasharray="3 2"><title>Cell ${i+1}: ${v===null?'no data':'no update for '+((S.now-S.cellSeen[i])/1000).toFixed(0)+' s, last '+v+' mV'}</title></rect>`; }
+    else { const out=v<LIM.cellMin||v>LIM.cellMax, dev=Math.abs(v-avg)>LIM.spreadMax/2;
+      const col=out?'#ff7b72':dev?'#e3b341':'#8b949e';
+      g+=`<rect x="${x+2}" y="${y(v)}" width="${cw-4}" height="${y(lo)-y(v)}" fill="${col}"><title>Cell ${i+1}: ${v} mV</title></rect>`; }
+    g+=`<text x="${x+cw/2}" y="${H-6}" text-anchor="middle" fill="#7d858d" font-size="9">${i+1}</text>`;
+  });
+  g+=`<line x1="${L}" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" stroke="#e9ecef" stroke-dasharray="4 3" stroke-width="1"/>`;
+  svg.innerHTML=g;
+  $('cellStats').textContent=`spread ${mx-mn} mV`;
+  $('cellScale').textContent=`min ${mn}  max ${mx}  avg ${avg.toFixed(0)} mV (dashed)`;
+}
+
+// Bus timing lanes: every frame drawn as a tick on a 10 s timeline; gaps shaded.
+function drawTiming(){
+  const cv=$('timing'), dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight;
+  if(!W) return;
+  if(cv.width!==W*dpr||cv.height!==H*dpr){ cv.width=W*dpr; cv.height=H*dpr; }
+  const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+  let t0,t1,label;
+  if(run){ t0=run.t0; t1=run.t0+WINDOW_MS; label='Test window (recording)'; }
+  else if(locked){ t0=locked.t0; t1=locked.t1; label=`Test window, attempt ${attempt} (locked)`; }
+  else { t1=S.now; t0=t1-WINDOW_MS; label='Last 10 s, live'; }
+  const LW=150, RW=200, top=24, bot=18, rh=(H-top-bot)/IDS.length, x=t=>LW+(W-LW-RW)*(t-t0)/(t1-t0);
+  c.font='12px Segoe UI, system-ui, sans-serif'; c.textBaseline='middle';
+  c.fillStyle='#7d858d'; c.fillText(label, 12, 12);
+  c.textAlign='right'; c.fillText('expected', W-RW+66, 12); c.fillText('actual', W-RW+122, 12); c.fillText('last seen', W-12, 12); c.textAlign='left';
+  // time grid
+  for(let s=0;s<=10;s++){ const gx=LW+(W-LW-RW)*s/10; c.strokeStyle='#2c3136'; c.beginPath(); c.moveTo(gx,top); c.lineTo(gx,H-bot); c.stroke();
+    c.fillStyle='#7d858d'; c.textAlign='center'; c.fillText(locked||run?`${s} s`:`${s-10} s`, gx, H-8); }
+  c.textAlign='left';
+  if(!S.frames){ c.fillStyle='#7d858d'; c.textAlign='center'; c.fillText('No CAN data. Every battery frame will appear here as a tick; silent stretches are shaded red.', LW+(W-LW-RW)/2, top+(H-top-bot)/2); c.textAlign='left'; return; }
+  IDS.forEach((id,i)=>{
+    const yc=top+rh*i+rh/2, y0=top+rh*i+4, y1=top+rh*(i+1)-4, per=1000/MSG[id].hz;
+    if(i>0){ c.strokeStyle='#2c3136'; c.beginPath(); c.moveTo(12,top+rh*i); c.lineTo(W-12,top+rh*i); c.stroke(); }
+    const a=S.arrivals[id]; let prev=null; const pts=[];
+    for(const t of a){ if(t<t0) prev=t; else if(t<=t1) pts.push(t); }
+    // gaps
+    let last = prev; let gapTxt='';
+    const shade=(s,e)=>{ c.fillStyle='rgba(198,47,47,.28)'; c.fillRect(x(Math.max(s,t0)),y0,x(e)-x(Math.max(s,t0)),y1-y0); };
+    const ever = a.length>0;
+    const edges = pts.concat([Math.min(t1,S.now)]);
+    edges.forEach((t,j)=>{ const from = last===null ? null : last; if(from!==null && t-from>3*per){ shade(from,t); gapTxt=`gap ${((t-from)/1000).toFixed(1)} s`; } if(j<pts.length) last=t; });
+    if(!ever){ shade(t0,Math.min(t1,S.now)); gapTxt='no messages'; }
+    // ticks
+    c.strokeStyle='#d0d5da'; c.lineWidth=1.5;
+    pts.forEach(t=>{ const tx=Math.round(x(t))+.5; c.beginPath(); c.moveTo(tx,y0+2); c.lineTo(tx,y1-2); c.stroke(); });
+    c.lineWidth=1;
+    // labels
+    c.fillStyle='#e9ecef'; c.fillText(MSG[id].name, 12, yc);
+    const r=pts.length/((Math.min(t1,S.now)-t0)/1000||1), ls=lastSeen(id);
+    const bad = gapTxt!=='' || (MSG[id].hz>=1 && (r>MSG[id].hz*2.5 || r<MSG[id].hz*0.5));
+    c.textAlign='right';
+    c.fillStyle='#7d858d'; c.fillText(`${MSG[id].hz} /s`, W-RW+66, yc);
+    c.fillStyle=bad?'#ff7b72':'#e9ecef'; c.fillText(r.toFixed(1), W-RW+122, yc);
+    c.fillStyle='#aab1b8'; c.fillText(ls===null?'--':`${((S.now-ls)/1000).toFixed(1)} s`, W-12, yc);
+    c.textAlign='left';
+    if(gapTxt){ c.fillStyle='#ff7b72'; c.fillText(gapTxt, LW+6, y0+7); }
+  });
+}
+function renderEvents(){
+  $('evCount').textContent=`(${events.length})`; $('sEv').textContent=events.length;
+  if(activePane!=='pEvents' || evRendered===events.length) return;
+  evRendered=events.length;
+  $('evEmpty').style.display=events.length?'none':'block';
+  const RC={pass:'pass',fail:'fail',warn:'warn'};
+  $('events').innerHTML=events.slice(-300).reverse().map(e=>`<tr><td class="t">${e.timestamp.slice(11,19)}</td><td>${e.kind}</td><td class="a">${esc(e.activity)}</td>
+    <td>${esc(e.value)}</td><td>${esc(e.expected)}</td><td>${RC[e.result]?`<span class="res ${e.result}">${RESTXT[e.result]}</span>`:''}</td><td>${esc(e.resource)}</td><td>${e.attempt||''}</td></tr>`).join('');
+}
+function renderCover(st){
+  if(activePane!=='pCover') return;
+  const L={pass:'<span class="res pass">PASS</span>',fail:'<span class="res fail">FAIL</span>',warn:'<span class="res warn">WARN</span>'};
+  $('cover').innerHTML=COMPONENTS.map(([k,n,how,ready])=>`<tr><td class="t">${k}</td><td>${n}</td><td style="color:var(--fg2)">${how}</td>
+    <td>${st[k]?L[st[k]]:ready==='now'?'<span style="color:var(--fg2)">ready, not tested</span>':'<span style="color:var(--fg3)">needs the method on the left</span>'}</td></tr>`).join('');
+}
+function renderTrace(){
+  if(activePane!=='pTrace') return;
+  $('trace').innerHTML = S.feed.length ? S.feed.slice(-16).map(x=>x.ev?`<span class="ev">${esc(x.t)}</span>`:esc(x.t)).join('\n') : 'No frames yet.';
+}
+function render(){
+  $('clock').textContent=new Date().toLocaleTimeString('en-GB');
+  $('sFrames').textContent=S.frames;
+  $('sRate').textContent=S.frames?IDS.reduce((a,id)=>a+rateIn(id,S.now-2000,S.now),0).toFixed(0):'0';
+  $('sErr').textContent=S.rxErr===null?'n/a':S.rxErr;
+  $('bClose').disabled=!sessionOpen;
+  const st=coverState();
+  renderBanner(); renderFix(); renderTests(); renderMap(st); renderBattery();
+  if(activePane==='pTiming') drawTiming();
+  renderEvents(); renderCover(st); renderTrace();
+}
+function feed(t,ev){ S.feed.push({t,ev}); if(S.feed.length>60) S.feed.splice(0,S.feed.length-60); }
+
+// ---------- Data sources ----------
+function setSource(kind,label){
+  source=kind;
+  $('srcText').textContent=label;
+  $('led').className='led '+(kind==='serial'?'on':kind==='replay'?'rp':'');
+  $('bStop').disabled=!kind;
+  $('bConnect').disabled = kind==='serial';
+  if(kind) feed(`source: ${label}`,true);
+}
+function showMsg(t){ const m=$('msg'); m.textContent=t; m.classList.add('show'); }
+function hideMsg(){ $('msg').classList.remove('show'); }
+
+async function connectSerial(){
+  if(!('serial' in navigator)){ showMsg('This browser cannot open serial ports. Use Chrome or Edge, and open the page from http://localhost (see the README).'); return; }
+  try{
+    await stopAll();
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({baudRate:+$('baud').value});
+    hideMsg(); resetAll(); setSource('serial',`Gateway live, ${$('baud').value} baud`);
+    const dec=new TextDecoderStream(); serialPort.readable.pipeTo(dec.writable).catch(()=>{});
+    serialReader=dec.readable.getReader(); let buf='';
+    while(true){
+      const {value,done}=await serialReader.read(); if(done) break;
+      buf+=value; let i; while((i=buf.indexOf('\n'))>=0){ handleLine(buf.slice(0,i)); buf=buf.slice(i+1); }
+    }
+  }catch(e){
+    if(e && e.name!=='NotFoundError') showMsg('Serial error: '+e.message+'. Close the Arduino Serial Monitor or any program using the port, then try again.');
+    if(source==='serial') setSource(null,'Not connected');
+  }
+}
+function startReplay(text,label){
+  stopAll();
+  const frames=[];
+  for(const l of text.split(/\r?\n/)){ const m=l.match(FRAME_RE); if(m) frames.push({ms:+m[1],line:l}); }
+  if(!frames.length){ showMsg('No CAN frames found in that file.'); return; }
+  hideMsg(); resetAll();
+  const speed=+$('speed').value; setSource('replay',`Replay: ${label}, x${speed}`);
+  let idx=0; const wall0=performance.now(), b0=frames[0].ms;
+  replayTimer=setInterval(()=>{
+    const target=b0+(performance.now()-wall0)*speed;
+    while(idx<frames.length && frames[idx].ms<=target){ handleLine(frames[idx].line); idx++; }
+    if(idx>=frames.length){ clearInterval(replayTimer); replayTimer=null; $('srcText').textContent=`Replay finished: ${label}`; feed('replay finished',true); }
+  },20);
+}
+async function stopAll(){
+  if(replayTimer){ clearInterval(replayTimer); replayTimer=null; }
+  try{ if(serialReader){ await serialReader.cancel(); serialReader=null; } }catch(e){}
+  try{ if(serialPort){ await serialPort.close(); serialPort=null; } }catch(e){}
+  if(source) setSource(null,'Not connected');
+}
+function resetAll(){
+  S.cells.fill(null); S.cellSeen.fill(-1); S.temps=[null,null,null,null]; S.tempsAbsent=[false,false,false,false]; S.tempsSeen=-1;
+  S.pack=S.soc=S.cur=S.flags=S.fault=S.err=S.cmax=S.cmin=S.dlim=S.chgV=S.chgA=null; S.frames=0; S.raw=[]; S.feed=[]; S.rxErr=null; S.lastWall=0;
+  resetTiming(); locked=null; chargeTest=null; chargeResult=null;
+}
+
+// ---------- Export ----------
+function download(name,content,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+const stamp=()=>new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+$('bJson').onclick=()=>download(`${chassis()}_events_${stamp()}.json`,JSON.stringify(events,null,2),'application/json');
+$('bCsv').onclick=()=>{ const cols=['case_id','timestamp','kind','activity','resource','value','unit','expected','result','stop','state','attempt','operator','board_ms'];
+  const q=v=>`"${String(v??'').replace(/"/g,'""')}"`; download(`${chassis()}_events_${stamp()}.csv`,[cols.join(',')].concat(events.map(e=>cols.map(c=>q(e[c])).join(','))).join('\n'),'text/csv'); };
+$('bRaw').onclick=()=>download(`${chassis()}_raw_${stamp()}.txt`,S.raw.join('\n'),'text/plain');
+
+// ---------- Wiring ----------
+$('bAction').onclick=()=>{ if(!source) connectSerial(); else startRun(); };
+$('bConnect').onclick=connectSerial;
+$('bFile').onclick=()=>$('file').click();
+$('file').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(t=>startReplay(t,f.name)); e.target.value=''; };
+$('bDemo').onclick=()=>fetch('../data/raw/bms_log_car_Bako.txt').then(r=>{ if(!r.ok) throw 0; return r.text(); })
+   .then(t=>startReplay(t,'ISS recording'))
+   .catch(()=>showMsg('Demo needs the page served over http: run "python -m http.server 8000" in the bako_can folder and open http://localhost:8000/ui/connectivity_check.html. Or use Replay file.'));
+$('bStop').onclick=()=>stopAll();
+$('bClose').onclick=()=>{ if(!sessionOpen) return; rec('session_close','Session ended at this stop','','','','', 'operator'); sessionOpen=false; feed('session ended',true); };
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===t.dataset.pane));
+  activePane=t.dataset.pane; evRendered=-1; render();
+});
+document.addEventListener('keydown',e=>{
+  if(e.code!=='Space') return;
+  const tag=(document.activeElement||{}).tagName;
+  if(['INPUT','SELECT','BUTTON','TEXTAREA'].includes(tag)) return;
+  e.preventDefault(); if(source && !$('bAction').disabled) startRun();
+});
+window.addEventListener('resize',()=>{ if(activePane==='pTiming') drawTiming(); });
+
+render();
+setInterval(render,250);
+</script>
+</body>
+</html>
