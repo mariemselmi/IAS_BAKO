@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1213">
+<title>BAKO Line App</title>
+<link rel="stylesheet" href="/static/theme.css?v=3">
+<link rel="stylesheet" href="/static/motion.css?v=3">
+<script src="/static/vendor/three.min.js" defer></script>
+<script src="/static/twin.js?v=3" defer></script>
+<style>
+/* Phone layout. Body 17 px, controls at least 44 px tall. */
+body{font-size:17px;line-height:1.4;padding-bottom:calc(32px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top)) 16px 8px;display:flex;gap:10px;align-items:center;min-height:56px}
+header .brand{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.06em;flex:1}
+header .brand small{font-family:var(--sans);font-weight:500;font-size:13px;letter-spacing:0;color:var(--text-3);margin-left:8px}
+#backBtn{padding:8px 10px 8px 6px;min-height:44px;display:flex;align-items:center;gap:2px}
+#backBtn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.2;fill:none}
+#user{max-width:44vw;min-height:40px;padding:6px 10px;font-size:14px}
+main{padding:16px;max-width:640px;margin:0 auto}
+h2{font-size:15px;font-weight:600;color:var(--text-2);margin:24px 0 10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-panel);padding:16px;margin:0 0 12px}
+label{display:block;font-size:14px;font-weight:500;color:var(--text-2);margin:14px 0 6px}
+input,select,textarea{width:100%;min-height:48px;font-size:17px}
+textarea{min-height:96px;resize:vertical}
+button{min-height:48px;font-size:16px}
+button.wide{width:100%}
+button.big{min-height:60px;font-size:18px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+/* home */
+.scan{display:flex;align-items:center;justify-content:center;gap:10px}
+.scan svg{width:24px;height:24px;stroke:currentColor;stroke-width:2;fill:none}
+.cards{display:grid;gap:10px}
+.vcard{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-panel);padding:14px 16px;font-weight:400}
+.vcard:hover{background:var(--hover)}
+.vcard .top{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+.vcard .top .display{font-size:28px;flex:1}
+.vcard .top .muted{font-size:14px}
+.empty{padding:28px 16px;text-align:center;color:var(--text-3);border:1px dashed var(--line-strong);border-radius:var(--r-panel)}
+/* session hero */
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-panel);overflow:hidden;margin:0 0 14px}
+.hero .twin{height:250px;border:0;border-radius:0}
+.hero .twin .rail{bottom:12px}
+.hero .info{padding:14px 16px 16px;border-top:1px solid var(--line)}
+.hero .display{font-size:40px;margin:2px 0 10px}
+.hero.fail{border-color:var(--fail-fill)}
+.facts{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px;color:var(--text-2);margin-top:12px}
+.facts b{font-weight:500;color:var(--text)}
+/* segmented tabs with badges */
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--raised);border-radius:var(--r-ctl);padding:4px;margin:0 0 14px}
+.tabs button{min-height:40px;border:0;background:none;border-radius:6px;padding:6px 4px;font-size:14px;font-weight:500;color:var(--text-2);display:flex;align-items:center;justify-content:center;gap:6px}
+.tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.tabs .badge{min-width:18px;height:18px;font-size:11px}
+/* operations */
+.phead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}
+.phead strong{font-size:17px}
+.ops{list-style:none;margin:0;padding:0}
+.ops li{border-top:1px solid var(--line);padding:14px 0;display:grid;grid-template-columns:24px 1fr auto;gap:3px 12px;align-items:center}
+.ops li:first-child{border-top:0}
+.ops li>.ic{grid-row:1/span 2;grid-column:1}
+.ops .name{grid-column:2;font-weight:600;font-size:16px}
+.ops .meta{grid-column:2;font-size:13px;color:var(--text-3)}
+.ops .act{grid-row:1/span 2;grid-column:3}
+.ops .act button{min-width:88px}
+.ops li.sep{display:block;padding:18px 0 6px;font-size:13px;color:var(--text-3);font-weight:500}
+.phases{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0 0}
+.phases button{padding:0;min-height:44px;font-family:var(--display);font-size:20px;font-weight:600}
+.phases button.cur{background:var(--text);border-color:var(--text);color:var(--page)}
+.list{list-style:none;margin:0;padding:0}
+.list li{border-top:1px solid var(--line);padding:14px 0}
+.list li:first-child{border-top:0}
+.list .t{font-weight:600}
+.list .d{font-size:14px;color:var(--text-2);margin-top:2px}
+.list button{margin-top:10px}
+.alarm{border-color:var(--fail-fill)}
+/* dialogs */
+dialog{border:1px solid var(--line-strong);border-radius:14px;background:var(--panel);color:var(--text);padding:20px;width:min(560px,calc(100vw - 24px))}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h3{margin:0 0 4px;font-size:20px}
+video{width:100%;border-radius:var(--r-ctl);background:#000;max-height:50vh}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:608px;margin:0 auto;padding:14px 16px;border-radius:12px;background:var(--text);color:var(--page);font-weight:500;display:none;z-index:20}
+#toast.err{background:var(--fail-fill);color:#fff}
+#toast.ok{background:var(--text);color:var(--page)}
+</style>
+</head>
+<body>
+<header>
+  <button class="ghost hidden" id="backBtn" data-home aria-label="All vehicles"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Vehicles</button>
+  <div class="brand" id="title">BAKO<small>Line</small></div>
+  <select id="user" aria-label="Signed-in user"></select>
+</header>
+<main>
+  <!-- Home: find a vehicle -->
+  <div id="home">
+    <button class="primary wide big scan" id="scanBtn"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 12h8"/></svg>Scan chassis QR</button>
+    <label for="chassisIn">Or type the chassis ID</label>
+    <div class="row"><input id="chassisIn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="BK26-0146"><button id="goBtn" style="flex:0 0 auto">Open</button></div>
+    <h2>In progress</h2>
+    <div class="cards" id="openList"><div class="empty">Loading</div></div>
+    <div id="alertsHome"></div>
+  </div>
+
+  <!-- Open session (manager) -->
+  <div id="openForm" class="hidden">
+    <section class="panel">
+      <div class="eyebrow">New build session</div>
+      <div class="display" id="ofChassis" style="font-size:40px;margin:4px 0 6px"></div>
+      <p class="muted" style="margin:0">No open build session for this chassis.</p>
+      <div id="ofManager">
+        <label for="ofModel">Vehicle model</label><select id="ofModel"></select>
+        <label for="ofGw">Gateway fitted to the car</label><select id="ofGw"><option value="">None yet</option></select>
+        <p></p>
+        <button class="primary wide" id="ofSubmit">Open build session</button>
+      </div>
+      <p id="ofNotManager" class="muted hidden">Only a production manager can open a session. Switch user at the top.</p>
+    </section>
+    <button class="ghost wide" data-home>Back to vehicles</button>
+  </div>
+
+  <!-- Session -->
+  <div id="session" class="hidden">
+    <section class="hero" id="sHero">
+      <div class="twin" id="twin" aria-label="3D view of the vehicle build, drag to turn"><div class="rail" id="rail"></div></div>
+      <div class="info" id="sHead"></div>
+    </section>
+    <div class="tabs" role="tablist">
+      <button class="on" data-tab="work" role="tab">Steps</button>
+      <button data-tab="issues" role="tab">Faults <span class="badge hidden" id="bAn"></span></button>
+      <button data-tab="alerts" role="tab">Alerts <span class="badge hidden" id="bAl"></span></button>
+      <button data-tab="manage" role="tab">Manage</button>
+    </div>
+    <div data-pane="work">
+      <section class="panel">
+        <div class="phead"><strong id="phaseTitle"></strong></div>
+        <ul class="ops" id="opsList"></ul>
+        <div id="faultBox"></div>
+      </section>
+      <button class="wide" id="anomBtn">Report a fault</button>
+    </div>
+    <div data-pane="issues" class="hidden"><section class="panel"><ul class="list" id="anomList"></ul></section></div>
+    <div data-pane="alerts" class="hidden"><section class="panel"><ul class="list" id="alertList"></ul></section></div>
+    <div data-pane="manage" class="hidden">
+      <section class="panel">
+        <strong>Move to phase</strong>
+        <div class="phases" id="phaseBar"></div>
+      </section>
+      <section class="panel">
+        <label for="mGw" style="margin-top:0">Gateway on this car</label>
+        <div class="row"><select id="mGw"></select><button id="mBind" style="flex:0 0 auto">Bind</button></div>
+        <p class="muted" style="font-size:14px;margin:8px 0 0">Also use this when a gateway moves to this car.</p>
+      </section>
+      <section class="panel">
+        <div id="complCheck" style="font-size:15px"></div><p></p>
+        <button class="good wide" id="mComplete">Declare production complete</button>
+        <p class="muted" style="font-size:14px;margin:8px 0 0">Ready for verification. The build record PDF is generated on completion.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<dialog id="scanDlg"><h3>Scan chassis QR</h3><video id="video" playsinline muted></video><p class="muted" id="scanMsg">Point the camera at the chassis label.</p><button class="wide" id="scanClose">Cancel</button></dialog>
+
+<dialog id="confDlg"><form method="dialog" id="confForm">
+  <h3 id="confTitle"></h3><div class="muted" id="confOp"></div>
+  <div id="confValWrap"><label for="confVal" id="confValLbl">Measured value</label><input id="confVal" inputmode="decimal" autocomplete="off"></div>
+  <p class="muted" id="confHint"></p>
+  <div class="row"><button type="button" class="good" id="confOk">OK</button><button type="button" class="bad" id="confBad">Not OK</button></div>
+  <p></p><button class="ghost wide" value="cancel">Cancel</button>
+</form></dialog>
+
+<dialog id="anomDlg"><form method="dialog">
+  <h3>Report a fault</h3>
+  <label for="aType">Type</label><select id="aType"></select>
+  <label for="aStation">Station</label><select id="aStation"></select>
+  <label for="aOp">Step (optional)</label><select id="aOp"><option value="">None</option></select>
+  <label for="aDesc">What is wrong</label><textarea id="aDesc" maxlength="500"></textarea>
+  <label for="aPhoto">Photo (optional)</label><input id="aPhoto" type="file" accept="image/*" capture="environment">
+  <p></p><div class="row"><button type="button" class="primary" id="aSave">Save fault</button><button class="ghost" value="cancel">Cancel</button></div>
+</form></dialog>
+
+<dialog id="fixDlg"><form method="dialog">
+  <h3>Record the fix</h3><div class="muted" id="fixWhat"></div>
+  <label for="fAction">What was done</label><textarea id="fAction" maxlength="500"></textarea>
+  <label>Re-check</label>
+  <div class="row"><button type="button" class="good" id="fOk">Re-check OK</button><button type="button" class="bad" id="fBad">Still not OK</button></div>
+  <p></p><button class="ghost wide" value="cancel">Cancel</button>
+</form></dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let CFG = null, S = null, REC = null, confCtx = null, fixCtx = null, TWIN = null, seenAnoms = new Set();
+const ICON = {ok:'<svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.3 2.3 4.7-5"/></svg>', bad:'<svg viewBox="0 0 12 12"><path d="M6 2.5v4.2M6 9.3v.1"/></svg>'};
+const icon = st => st==="ok" ? `<span class="ic ok">${ICON.ok}</span>` : st==="not_ok" ? `<span class="ic bad">${ICON.bad}</span>` :
+  st==="in_progress" ? `<span class="ic run"></span>` : st==="unconfirmed" ? `<span class="ic wait"></span>` : `<span class="ic"></span>`;
+
+function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+function toast(msg, kind){ const t=$("#toast"); t.textContent=msg; t.className=kind||""; t.style.display="block"; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display="none", kind==="err"?6000:2500); }
+async function api(path, opts={}){
+  const r = await fetch(path, {headers:{"Content-Type":"application/json"}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined});
+  let data = null; try{ data = await r.json(); }catch(e){}
+  if(!r.ok) throw new Error((data && data.detail) ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : `HTTP ${r.status}`);
+  return data;
+}
+const user = () => $("#user").value;
+const role = () => (CFG.users.find(u => u.id === user()) || {}).role;
+const nowIso = () => { const d=new Date(), o=-d.getTimezoneOffset(), p=n=>String(Math.abs(n)).padStart(2,"0"); return d.toISOString().slice(0,19)+(o>=0?"+":"-")+p(o/60|0)+":"+p(o%60); };
+function show(id){
+  for(const v of ["home","openForm","session"]) $("#"+v).classList.toggle("hidden", v!==id);
+  $("#backBtn").classList.toggle("hidden", id==="home"); window.scrollTo(0,0);
+}
+const brand = () => { $("#title").innerHTML = `BAKO<small>Line</small>`; };
+const mrail = (phases, cur) => `<div class="mrail" aria-hidden="true">${[0,1,2,3,4,5,6].map(p => `<i class="${(phases||{})[p]||""}${p===cur?" cur":""}"></i>`).join("")}</div>`;
+
+async function boot(){
+  CFG = await api("/api/config");
+  const sel = $("#user");
+  sel.innerHTML = CFG.users.map(u => `<option value="${esc(u.id)}">${esc(u.name)} (${esc(u.role)})</option>`).join("");
+  const saved = store("bako.user"); if(saved && CFG.users.some(u=>u.id===saved)) sel.value = saved;
+  sel.onchange = () => { store("bako.user", sel.value); render(); };
+  $("#ofModel").innerHTML = Object.entries(CFG.models).map(([k,m]) => `<option value="${esc(k)}">${esc(k)} - ${esc(m.name)}</option>`).join("");
+  const gws = CFG.gateways.map(g => `<option value="${esc(g.id)}">${esc(g.id)}${g.note?" - "+esc(g.note):""}</option>`).join("");
+  $("#ofGw").innerHTML = `<option value="">None yet</option>` + gws; $("#mGw").innerHTML = gws;
+  $("#aType").innerHTML = (CFG.anomaly_types||["other"]).map(t => `<option>${esc(t)}</option>`).join("");
+  $("#aStation").innerHTML = CFG.stations.map(s => `<option value="${esc(s.id)}">${esc(s.id)} ${esc(s.name)}</option>`).join("");
+  const q = new URLSearchParams(location.search).get("chassis");
+  if(q) openChassis(q); else home();
+  setInterval(() => { if(!document.hidden){ if(S) refresh(); else if(!$("#home").classList.contains("hidden")) home(); } }, 15000);
+}
+
+// ---- home ----
+async function home(){
+  S = null; REC = null; show("home"); brand();
+  try{
+    const live = await api("/api/live");
+    $("#openList").innerHTML = live.sessions.length ? live.sessions.map(s =>
+      `<button class="vcard" data-ch="${esc(s.chassis_id)}"><div class="top"><span class="display">${esc(s.chassis_id)}</span>
+        ${s.open_anomalies?`<span class="badge">${s.open_anomalies}</span>`:""}<span class="muted">${esc(s.model)}</span></div>
+        ${mrail(s.phases, s.phase)}<div class="mrail-l">Phase ${s.phase}, ${esc(s.phase_name)}${s.station?` - station ${esc(s.station)}`:""}</div></button>`).join("")
+      : `<div class="empty">No vehicle in progress. Scan a chassis to open a build session.</div>`;
+    $("#openList").querySelectorAll("[data-ch]").forEach(b => b.onclick = () => openChassis(b.dataset.ch));
+    const al = live.alerts.filter(a => !a.acknowledged_at);
+    $("#alertsHome").innerHTML = (al.length && role() !== "operator") ? `<h2>Open alerts</h2><section class="panel"><ul class="list">${al.map(alertLi).join("")}</ul></section>` : "";
+    bindAcks($("#alertsHome"));
+  }catch(e){ $("#openList").innerHTML = `<div class="empty bad">Server not reachable: ${esc(e.message)}</div>`; }
+}
+$("#goBtn").onclick = () => { const v=$("#chassisIn").value.trim(); if(v) openChassis(v); };
+$("#chassisIn").onkeydown = e => { if(e.key==="Enter") $("#goBtn").click(); };
+document.querySelectorAll("[data-home]").forEach(b => b.onclick = home);
+
+// ---- QR scan ----
+let stream = null, scanning = false;
+$("#scanBtn").onclick = async () => {
+  if(!("BarcodeDetector" in window)){ toast("This browser cannot read QR codes. Type the chassis ID.", "err"); $("#chassisIn").focus(); return; }
+  const dlg = $("#scanDlg"); dlg.showModal();
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+    const v = $("#video"); v.srcObject = stream; await v.play();
+    const det = new BarcodeDetector({formats:["qr_code","code_128","data_matrix"]}); scanning = true;
+    const loop = async () => {
+      if(!scanning) return;
+      try{ const codes = await det.detect(v); if(codes.length){ const raw = codes[0].rawValue.trim(); stopScan(); openChassis(raw.replace(/^.*[?&]chassis=/, "")); return; } }catch(e){}
+      requestAnimationFrame(loop);
+    }; loop();
+  }catch(e){ $("#scanMsg").textContent = "Camera not available: " + e.message; }
+};
+function stopScan(){ scanning = false; if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } if($("#scanDlg").open) $("#scanDlg").close(); }
+$("#scanClose").onclick = stopScan;
+
+// ---- open chassis ----
+async function openChassis(ch){
+  ch = ch.trim(); $("#chassisIn").value = "";
+  try{
+    const live = await api("/api/live");
+    const s = live.sessions.find(x => x.chassis_id.toLowerCase() === ch.toLowerCase());
+    if(s){ S = s; history.replaceState(null, "", "?chassis="+encodeURIComponent(s.chassis_id)); await refresh(); show("session"); return; }
+    $("#ofChassis").textContent = ch; S = null; show("openForm"); renderOpenForm();
+  }catch(e){ toast(e.message, "err"); }
+}
+function renderOpenForm(){ const m = role()==="manager"; $("#ofManager").classList.toggle("hidden", !m); $("#ofNotManager").classList.toggle("hidden", m); }
+$("#ofSubmit").onclick = async () => {
+  const b = $("#ofSubmit"); b.disabled = true;
+  try{
+    const s = await api("/api/sessions", {method:"POST", body:{chassis:$("#ofChassis").textContent, model:$("#ofModel").value, gateway:$("#ofGw").value||null, manager_id:user(), client_time:nowIso()}});
+    toast("Session opened", "ok"); openChassis(s.chassis_id);
+  }catch(e){ toast(e.message, "err"); } finally{ b.disabled = false; }
+};
+
+// ---- session ----
+async function refresh(){
+  if(!S) return;
+  REC = await api(`/api/sessions/${S.session_id}`);
+  S = REC.session;
+  if(S.status !== "open"){ toast(`${S.chassis_id} is complete`, "ok"); home(); return; }
+  render();
+}
+function render(){
+  if(!$("#openForm").classList.contains("hidden")) renderOpenForm();
+  if(!REC){ return; }
+  const s = REC.session, bind = REC.bindings.filter(b=>!b.to_ts).pop();
+  $("#title").innerHTML = `<span class="mono" style="font-family:var(--mono);font-size:16px;letter-spacing:0">${esc(s.chassis_id)}</span>`;
+  const openAn = REC.anomalies.filter(a=>!a.closed_at).length, openAl = REC.alerts.filter(a=>!a.acknowledged_at).length;
+  const states = window.BakoTwin ? BakoTwin.phaseStates(REC) : {}, here = states[s.phase];
+  const ps = here==="fail" ? {cls:"fail", text:"Fault found, fix before moving on"} : here==="run" ? {cls:"run", text:"Step running"} :
+             here==="pass" ? {cls:"pass", text:"Phase confirmed"} : {cls:"", text:"Ready"};
+  $("#sHero").className = "hero" + (here==="fail" ? " fail" : "");
+  $("#sHead").innerHTML = `<div class="eyebrow">Phase ${s.phase} of 6, ${esc(REC.phase_name)}</div>
+    <div class="display">${esc(s.chassis_id)}</div>
+    <div class="pill ${ps.cls}" role="status"><i></i><span>${esc(ps.text)}</span></div>
+    <div class="facts"><span>Model <b>${esc(s.model)}</b></span><span>Station <b>${esc(s.station||"-")}</b></span>
+      <span>Gateway <b class="mono">${esc(bind?bind.gateway_id:"none")}</b></span></div>`;
+  const badge = (el, n) => { el.textContent = n; el.classList.toggle("hidden", !n); };
+  badge($("#bAn"), openAn); badge($("#bAl"), openAl);
+  // 3D twin and stage rail
+  if(!TWIN && window.BakoTwin){ TWIN = BakoTwin.mount($("#twin")) || "off"; }
+  if(TWIN && TWIN !== "off") TWIN.update({phase:s.phase, phases:states});
+  if(window.BakoTwin) BakoTwin.rail($("#rail"), s.phase, states); else $("#twin").classList.add("hidden");
+  // phase bar
+  const isMgr = role()==="manager";
+  $("#phaseTitle").textContent = `Steps in phase ${s.phase}`;
+  $("#phaseBar").innerHTML = [0,1,2,3,4,5,6].map(p => `<button data-ph="${p}" class="${p===s.phase?"cur":""}" ${isMgr?"":"disabled"} aria-label="Phase ${p}">${p}</button>`).join("");
+  $("#phaseBar").querySelectorAll("[data-ph]").forEach(b => b.onclick = () => changePhase(+b.dataset.ph));
+  // operations of the current phase first, then other unfinished ones
+  const cur = REC.route.filter(o => o.phase === s.phase), other = REC.route.filter(o => o.phase !== s.phase && o.status !== "ok");
+  $("#opsList").innerHTML = cur.map(opLi).join("") + (other.length ? `<li class="sep">Not finished in other phases</li>` + other.map(opLi).join("") : "");
+  $("#opsList").querySelectorAll("[data-start]").forEach(b => b.onclick = () => opStart(b.dataset.start));
+  $("#opsList").querySelectorAll("[data-end]").forEach(b => b.onclick = () => openConfirm(b.dataset.end));
+  // fault box for open anomalies of this phase; scrolls into view when a new one appears
+  const faults = REC.anomalies.filter(a => !a.closed_at && a.phase === s.phase);
+  $("#faultBox").innerHTML = faults.map(a => `<div class="fault"><b>Fault caught at phase ${s.phase}: ${esc(a.type)}</b><span>${esc(a.description||"")}</span></div>`).join("");
+  if(seenAnoms.session !== s.session_id){ seenAnoms = new Set(REC.anomalies.map(a => a.id)); seenAnoms.session = s.session_id; }
+  const fresh = faults.find(a => !seenAnoms.has(a.id));
+  REC.anomalies.forEach(a => seenAnoms.add(a.id));
+  if(fresh) requestAnimationFrame(() => $("#faultBox").scrollIntoView({block:"nearest", behavior:"smooth"}));
+  // anomalies
+  $("#anomList").innerHTML = REC.anomalies.length ? REC.anomalies.slice().reverse().map(a =>
+    `<li><div class="t"><span class="dot ${a.closed_at?"ok":"bad"}">${a.closed_at?"Fixed":"Open"}</span> ${esc(a.type)}</div>
+     <div class="d">${esc(a.description||"")}</div><div class="d muted">Station ${esc(a.station||"-")}, phase ${a.phase ?? "-"}${a.photo?`, <a href="/api/${esc(a.photo)}" target="_blank" rel="noopener">photo</a>`:""}</div>
+     ${a.interventions.map(i=>`<div class="d">Fix: ${esc(i.action)}, re-check ${i.recheck_result==="ok"?"OK":"not OK"}</div>`).join("")}
+     ${a.closed_at?"":`<button class="primary" data-fix="${a.id}">Record the fix</button>`}</li>`).join("") : `<li class="muted">No fault on this vehicle.</li>`;
+  $("#anomList").querySelectorAll("[data-fix]").forEach(b => b.onclick = () => openFix(+b.dataset.fix));
+  // alerts
+  $("#alertList").innerHTML = REC.alerts.length ? REC.alerts.slice().reverse().map(alertLi).join("") : `<li class="muted">No alert on this vehicle.</li>`;
+  bindAcks($("#alertList"));
+  // manage
+  document.querySelector('[data-tab="manage"]').classList.toggle("hidden", !isMgr);
+  const miss = REC.missing_operations;
+  $("#complCheck").innerHTML = (miss.length ? `<span class="dot warn">${miss.length} step${miss.length>1?"s":""} not confirmed</span><div class="muted mono" style="font-size:13px;white-space:normal;margin-top:4px">${esc(miss.join(", "))}</div>` : `<span class="dot ok">All steps confirmed</span>`) +
+    (openAn ? `<div style="margin-top:8px"><span class="dot bad">${openAn} fault${openAn>1?"s":""} still open</span></div>` : "");
+}
+function opLi(o){
+  const last = o.instances[o.instances.length-1], running = last && !last.end;
+  const label = {ok:"OK",not_ok:"Not OK",unconfirmed:"Needs confirmation",in_progress:"Running",pending:""}[o.status];
+  const conf = o.confirmations[o.confirmations.length-1];
+  const meta = [`<span class="mono">${esc(o.code)}</span>`, `${o.target_min} min`, o.check?`check ${o.check.min} to ${o.check.max} ${esc(o.check.unit)}`:"",
+    conf && conf.value!=null ? `measured ${conf.value} ${esc(conf.unit||"")}` : "", o.instances.length>1?`${o.instances.length} runs`:""].filter(Boolean).join(" - ");
+  return `<li>${icon(o.status)}<div class="name">${esc(o.name)}</div><div class="meta">${label?`<span class="st ${o.status}">${label}</span> - `:""}${meta}</div>
+    <div class="act">${running ? `<button class="primary" data-end="${esc(o.code)}">Finish</button>` :
+      o.status==="unconfirmed" ? `<button class="primary" data-end="${esc(o.code)}">Confirm</button>` :
+      `<button data-start="${esc(o.code)}">${o.instances.length ? "Redo" : "Start"}</button>`}</div></li>`;
+}
+function alertLi(a){
+  return `<li><div class="t"><span class="dot ${a.severity==="critical"?"bad":"warn"}">${esc(a.label||a.rule)}</span> ${a.chassis_id?`<span class="mono muted" style="font-size:14px">${esc(a.chassis_id)}</span>`:""}</div>
+    <div class="d">${esc(a.message)}</div><div class="d muted">${new Date(a.raised_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${a.sms_sent?", SMS sent":""}${a.cleared_at?", condition cleared":""}</div>
+    ${a.acknowledged_at ? `<div class="d muted">Acknowledged by ${esc(a.acknowledged_by)}</div>` : (role()!=="operator" ? `<button data-ack="${a.alert_id}">Acknowledge</button>` : "")}</li>`;
+}
+function bindAcks(root){ root.querySelectorAll("[data-ack]").forEach(b => b.onclick = async () => {
+  b.disabled = true; try{ await api(`/api/alerts/${b.dataset.ack}/ack`, {method:"POST", body:{user:user()}}); toast("Alert acknowledged","ok"); S ? refresh() : home(); }catch(e){ toast(e.message,"err"); b.disabled=false; } }); }
+
+document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x===b));
+  document.querySelectorAll("[data-pane]").forEach(p => p.classList.toggle("hidden", p.dataset.pane !== b.dataset.tab));
+});
+
+async function post(body, okMsg){
+  try{ const r = await api("/api/events", {method:"POST", body:{session:S.session_id, chassis:S.chassis_id, client_time:nowIso(), ...body}}); if(okMsg) toast(okMsg,"ok"); await refresh(); return r; }
+  catch(e){ toast(e.message, "err"); throw e; }
+}
+async function changePhase(p){ if(p===S.phase) return; if(!confirm(`Move ${S.chassis_id} to phase ${p}?`)) return; post({type:"phase_change", phase:p, user:user()}, `Phase ${p}`); }
+function opStart(code){ const o = REC.route.find(x=>x.code===code); post({type:"operation_start", operation:code, station:o.station, phase:o.phase, user:user()}, "Started"); }
+
+function openConfirm(code){
+  const o = REC.route.find(x=>x.code===code), last = o.instances[o.instances.length-1];
+  confCtx = {o, running: last && !last.end};
+  $("#confTitle").textContent = confCtx.running ? "Finish and confirm" : "Confirm operation";
+  $("#confOp").textContent = `${o.code} - ${o.name}`;
+  $("#confValWrap").classList.toggle("hidden", !o.check);
+  $("#confVal").value = "";
+  if(o.check){ $("#confValLbl").textContent = `Measured value (${o.check.unit})`; $("#confHint").textContent = `In spec: ${o.check.min} to ${o.check.max} ${o.check.unit}`; } else $("#confHint").textContent = "";
+  $("#confDlg").showModal();
+}
+async function confirmOp(result){
+  const o = confCtx.o, raw = $("#confVal").value.replace(",", ".").trim();
+  if(o.check && raw === "" && result === "ok"){ toast("Enter the measured value", "err"); return; }
+  const value = raw === "" ? null : Number(raw);
+  if(value !== null && Number.isNaN(value)){ toast("The value is not a number", "err"); return; }
+  if(value !== null && result === "ok" && (value < o.check.min || value > o.check.max) && !confirm(`${value} ${o.check.unit} is out of spec. Confirm OK anyway?`)) return;
+  $("#confDlg").close();
+  const body = {operation:o.code, station:o.station, phase:o.phase, result, value, confirmed_by:user()};
+  try{
+    await post({type: confCtx.running ? "operation_end" : "confirmation", ...body}, result==="ok" ? "Confirmed OK" : "Recorded NOT OK");
+    if(result === "not_ok") openAnomaly(o);
+  }catch(e){}
+}
+$("#confOk").onclick = () => confirmOp("ok");
+$("#confBad").onclick = () => confirmOp("not_ok");
+
+function openAnomaly(op){
+  $("#aOp").innerHTML = `<option value="">none</option>` + REC.route.map(o => `<option value="${esc(o.code)}">${esc(o.code)}</option>`).join("");
+  $("#aOp").value = op ? op.code : "";
+  $("#aStation").value = (op && op.station) || S.station || (REC.route.find(o=>o.phase===S.phase)||{}).station || CFG.stations[0].id;
+  $("#aDesc").value = ""; $("#aPhoto").value = "";
+  $("#anomDlg").showModal();
+}
+$("#anomBtn").onclick = () => openAnomaly(null);
+async function shrink(file){
+  const img = await createImageBitmap(file), k = Math.min(1, 1280/Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = Math.round(img.width*k); c.height = Math.round(img.height*k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", 0.8);
+}
+$("#aSave").onclick = async () => {
+  const desc = $("#aDesc").value.trim(); if(!desc){ toast("Describe what is wrong", "err"); return; }
+  const b = $("#aSave"); b.disabled = true;
+  try{
+    const f = $("#aPhoto").files[0], photo = f ? await shrink(f) : null;
+    const op = REC.route.find(o => o.code === $("#aOp").value);
+    await post({type:"anomaly", anomaly_type:$("#aType").value, station:$("#aStation").value, operation:op?op.code:null, phase:op?op.phase:S.phase, description:desc, photo, user:user()}, "Fault recorded");
+    $("#anomDlg").close();
+  }catch(e){} finally{ b.disabled = false; }
+};
+
+function openFix(id){ fixCtx = REC.anomalies.find(a=>a.id===id); $("#fixWhat").textContent = `#${id} ${fixCtx.type}: ${fixCtx.description||""}`; $("#fAction").value=""; $("#fixDlg").showModal(); }
+async function fix(recheck){
+  const action = $("#fAction").value.trim(); if(!action){ toast("Describe what was done", "err"); return; }
+  $("#fixDlg").close();
+  post({type:"intervention", anomaly:fixCtx.id, action, recheck, user:user()}, recheck==="ok" ? "Fault fixed" : "Fix recorded, fault still open");
+}
+$("#fOk").onclick = () => fix("ok"); $("#fBad").onclick = () => fix("not_ok");
+
+$("#mBind").onclick = () => post({type:"bind_gateway", gateway:$("#mGw").value, user:user()}, "Gateway bound");
+$("#mComplete").onclick = async () => {
+  const miss = REC.missing_operations.length, an = REC.anomalies.filter(a=>!a.closed_at).length;
+  const warn = (miss||an) ? `\n\nWarning: ${miss} operation(s) not confirmed, ${an} anomaly(ies) open. The build record will be marked incomplete.` : "";
+  if(!confirm(`Declare ${S.chassis_id} production complete - ready for verification?${warn}`)) return;
+  try{ await api(`/api/sessions/${S.session_id}/complete`, {method:"POST", body:{user:user(), client_time:nowIso()}}); toast(`${S.chassis_id} complete. Build record generated.`, "ok"); history.replaceState(null,"","?"); home(); }
+  catch(e){ toast(e.message, "err"); }
+};
+
+boot().catch(e => { document.querySelector("main").innerHTML = `<section class="panel"><p class="st not_ok">Cannot reach the BAKO server: ${esc(e.message)}</p></section>`; });
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+/* BAKO shared theme: tokens, type, base elements, components.
+   Colour carries state only: pass (green), running / attention (amber), fault (red).
+   Actions are neutral: the primary button is the inverted text colour. All text tokens
+   measure 4.5:1 or more on every surface, in dark and light. */
+@import url("/static/vendor/fonts/fonts.css");
+
+:root{
+  --page:#0f1213; --panel:#161a1c; --raised:#1e2326; --hover:#242a2d;
+  --line:#2a3135; --line-strong:#3a4247;
+  --text:#eef1ef; --text-2:#b0b9b5; --text-3:#8f9995;
+  --pass:#5fd08a; --run:#f2b341; --fail:#ff6b5e;
+  --pass-fill:#1e7f4b; --run-fill:#a86b0b; --fail-fill:#d93b32;
+  --pass-soft:rgba(95,208,138,.12); --run-soft:rgba(242,179,65,.13); --fail-soft:rgba(255,107,94,.13);
+  --seg-idle:#2d3438;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --mono:"IBM Plex Mono","SFMono-Regular",Menlo,Consolas,monospace;
+  --display:"Barlow Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --r-panel:10px; --r-ctl:8px;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --page:#eceeed; --panel:#ffffff; --raised:#f4f6f5; --hover:#eef1ef;
+  --line:#d5dbd8; --line-strong:#b9c2be;
+  --text:#14181a; --text-2:#45504c; --text-3:#5d6864;
+  --pass:#16794a; --run:#8f5500; --fail:#c22e26;
+  --pass-fill:#1e7f4b; --run-fill:#a86b0b; --fail-fill:#c22e26;
+  --pass-soft:rgba(22,121,74,.09); --run-soft:rgba(143,85,0,.09); --fail-soft:rgba(194,46,38,.08);
+  --seg-idle:#d5dbd8;
+  color-scheme:light;
+}}
+@media (prefers-contrast:more){:root{--line:var(--line-strong);--text-3:var(--text-2)}}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--text);font-family:var(--sans);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+a{color:var(--text);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--text)}
+.mono{font-family:var(--mono);white-space:nowrap}
+.muted{color:var(--text-3)}
+.display{font-family:var(--display);font-weight:800;letter-spacing:.01em;line-height:1}
+.eyebrow{font-size:12px;font-weight:500;color:var(--text-3)}
+.hidden{display:none!important}
+:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+
+/* controls */
+button,input,select,textarea{font:inherit;color:var(--text)}
+button{background:var(--raised);border:1px solid var(--line-strong);border-radius:var(--r-ctl);padding:8px 14px;font-weight:600;cursor:pointer}
+button:hover:not(:disabled){background:var(--hover)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--text);border-color:var(--text);color:var(--page)}
+button.primary:hover:not(:disabled){background:var(--text-2);border-color:var(--text-2)}
+button.good{background:var(--pass-fill);border-color:var(--pass-fill);color:#fff}
+button.bad{background:var(--fail-fill);border-color:var(--fail-fill);color:#fff}
+button.ghost{background:transparent;border-color:transparent;color:var(--text-2)}
+button.ghost:hover:not(:disabled){background:var(--raised);color:var(--text)}
+input,select,textarea{background:var(--raised);border:1px solid var(--line-strong);border-radius:var(--r-ctl);padding:9px 12px}
+input::placeholder,textarea::placeholder{color:var(--text-3)}
+
+/* state text */
+.ok,.st.ok{color:var(--pass)} .warn,.st.unconfirmed,.st.in_progress{color:var(--run)} .bad,.st.not_ok{color:var(--fail)}
+.st{font-size:12px;font-weight:600}
+.st.pending{color:var(--text-3)}
+
+/* badge: count of things that need attention */
+.badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--fail-fill);color:#fff;font-size:12px;font-weight:600;line-height:1}
+.badge.warn{background:var(--run-fill)}
+
+/* status dot + word (never colour alone) */
+.dot{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.dot::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--text-3);flex:0 0 auto}
+.dot.ok,.dot.warn,.dot.bad{color:inherit;font-weight:inherit}
+.dot.ok::before{background:var(--pass)} .dot.warn::before{background:var(--run)} .dot.bad::before{background:var(--fail)}
+
+/* mini phase strip: the build progress of one vehicle, 7 segments, phase 0..6 */
+.mrail{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;min-width:112px}
+.mrail i{height:6px;border-radius:2px;background:var(--seg-idle)}
+.mrail i.pass{background:var(--pass)} .mrail i.run{background:var(--run)} .mrail i.fail{background:var(--fail)}
+.mrail i.cur{outline:2px solid var(--text);outline-offset:1px}
+.mrail-l{font-size:12px;color:var(--text-2);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* tables */
+table{border-collapse:collapse;width:100%}
+th{font-size:12px;font-weight:500;color:var(--text-3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:14px}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right}
+tbody tr.sel td{background:var(--raised)}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--hover)}
+tr.alarm td{background:var(--fail-soft)}

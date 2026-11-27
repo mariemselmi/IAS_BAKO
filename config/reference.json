@@ -1,0 +1,115 @@
+{
+  "_comment": "I4 reference and configuration data. DRAFT route: phases, operations, stations and target times are placeholders until BAKO supplies the real route (spec open item 5). Thresholds marked provisional are spec 'to define' items (open item 6).",
+  "timezone": "Africa/Tunis",
+  "models": {
+    "BAKO-B1": {
+      "name": "BAKO solar utility vehicle (draft route)",
+      "phases": [
+        {"phase": 0, "name": "Chassis intake", "operations": [
+          {"code": "P0-CHASSIS-SCAN", "name": "Chassis received and QR label fitted", "station": "S0", "target_min": 10},
+          {"code": "P0-FRAME-CHECK", "name": "Frame visual and dimensional check", "station": "S0", "target_min": 20, "check": {"unit": "mm", "min": -2, "max": 2}}
+        ]},
+        {"phase": 1, "name": "Suspension and axles", "operations": [
+          {"code": "P1-AXLE-MOUNT", "name": "Front and rear axle mounting", "station": "S1", "target_min": 60},
+          {"code": "P1-AXLE-TORQUE", "name": "Axle bolts torqued", "station": "S1", "target_min": 15, "check": {"unit": "Nm", "min": 85, "max": 95}},
+          {"code": "P1-BRAKES", "name": "Brake lines and handbrake fitted", "station": "S1", "target_min": 45}
+        ]},
+        {"phase": 2, "name": "Wiring harness", "operations": [
+          {"code": "P2-HARNESS-ROUTE", "name": "12 V and 72 V harness routed", "station": "S2", "target_min": 90},
+          {"code": "P2-HARNESS-CONT", "name": "Harness continuity check", "station": "S2", "target_min": 20, "check": {"unit": "ohm", "min": 0, "max": 1}}
+        ]},
+        {"phase": 3, "name": "Battery and BMS", "operations": [
+          {"code": "P3-BATT-MOUNT", "name": "Battery pack mounted", "station": "S3", "target_min": 40},
+          {"code": "P3-BMS-CONNECT", "name": "BMS connected and powered up", "station": "S3", "target_min": 15, "starts_can": true},
+          {"code": "P3-BATT-CHECK", "name": "Battery connectivity check (station page)", "station": "S3", "target_min": 10}
+        ]},
+        {"phase": 4, "name": "Power electronics", "operations": [
+          {"code": "P4-DCDC", "name": "DC-DC converter fitted", "station": "S4", "target_min": 30},
+          {"code": "P4-MPPT", "name": "MPPT and solar panel fitted", "station": "S4", "target_min": 60},
+          {"code": "P4-MOTOR", "name": "Motor and controller fitted", "station": "S4", "target_min": 60}
+        ]},
+        {"phase": 5, "name": "Body and trim", "operations": [
+          {"code": "P5-BODY", "name": "Body panels fitted", "station": "S5", "target_min": 120},
+          {"code": "P5-LIGHTS", "name": "Lights and signals fitted", "station": "S5", "target_min": 30}
+        ]},
+        {"phase": 6, "name": "Final test", "operations": [
+          {"code": "P6-FUNCTION-TEST", "name": "Functional test (lights, brakes, handbrake, drive)", "station": "S6", "target_min": 45},
+          {"code": "P6-SOLAR-TEST", "name": "Solar charging test", "station": "S6", "target_min": 20, "check": {"unit": "A", "min": 0.3, "max": 30}}
+        ]}
+      ]
+    }
+  },
+  "can": {
+    "start_operation": "P3-BMS-CONNECT",
+    "phases": [3, 4, 5, 6],
+    "gap_factor": 3.0,
+    "gap_min_s": 2.0,
+    "messages": [
+      {"can_id": "0x18FF28F4", "name": "Pack summary", "period_ms": 100},
+      {"can_id": "0x18FE28F4", "name": "Cell extremes", "period_ms": 100},
+      {"can_id": "0x18C828F4", "name": "Cells 1-4", "period_ms": 2500},
+      {"can_id": "0x18C928F4", "name": "Cells 5-8", "period_ms": 2500},
+      {"can_id": "0x18CA28F4", "name": "Cells 9-12", "period_ms": 2500},
+      {"can_id": "0x18CB28F4", "name": "Cells 13-16", "period_ms": 2500},
+      {"can_id": "0x18CC28F4", "name": "Cells 17-19", "period_ms": 2500},
+      {"can_id": "0x18B428F4", "name": "Battery temperatures", "period_ms": 500},
+      {"can_id": "0x18FFE5F4", "name": "Charge request", "period_ms": 1000}
+    ]
+  },
+  "thresholds": {
+    "bms_silent_s": 5,
+    "dcdc_min_v": 11.0,
+    "dcdc_max_v": 14.5,
+    "dcdc_present_v": 3.0,
+    "temp_warning_c": 70,
+    "temp_critical_c": 85,
+    "cell_spread_mv": 50,
+    "session_idle_min": 60,
+    "gateway_offline_s": 10,
+    "operation_unconfirmed_min": 15,
+    "alert_rearm_s": 30,
+    "escalate_after_min": 10,
+    "sms_rate_limit_min": 15,
+    "can_capture_complete_pct": 95,
+    "_provisional": ["cell_spread_mv", "session_idle_min", "escalate_after_min", "operation_unconfirmed_min"]
+  },
+  "measurements": {
+    "bms_snapshot_s": 5,
+    "bms_fields": ["pack_v", "pack_current_a", "soc", "fault_level", "error_code", "cell_max_mv", "cell_min_mv", "cell_spread_mv", "temp_max_c", "temp_min_c"]
+  },
+  "contacts": {
+    "supervisors": [{"name": "Line supervisor", "phone": "+21600000000"}],
+    "escalation": [{"name": "Production manager", "phone": "+21600000001"}],
+    "plant_manager_email": ""
+  },
+  "stations": [
+    {"id": "S0", "name": "Intake"},
+    {"id": "S1", "name": "Suspension"},
+    {"id": "S2", "name": "Harness"},
+    {"id": "S3", "name": "Battery"},
+    {"id": "S4", "name": "Power electronics"},
+    {"id": "S5", "name": "Body"},
+    {"id": "S6", "name": "Final test"}
+  ],
+  "shifts": [
+    {"id": "A", "start": "06:00", "end": "14:00"},
+    {"id": "B", "start": "14:00", "end": "22:00"},
+    {"id": "C", "start": "22:00", "end": "06:00"}
+  ],
+  "calendar": {
+    "workdays": [0, 1, 2, 3, 4, 5],
+    "holidays": []
+  },
+  "users": [
+    {"id": "mgr-01", "role": "manager", "name": "Manager 1"},
+    {"id": "sup-01", "role": "supervisor", "name": "Supervisor 1"},
+    {"id": "op-01", "role": "operator", "name": "Operator 1"},
+    {"id": "op-02", "role": "operator", "name": "Operator 2"},
+    {"id": "op-07", "role": "operator", "name": "Operator 7"}
+  ],
+  "gateways": [
+    {"id": "esp32-bms-001", "note": "ISS board #1"},
+    {"id": "esp32-bms-002", "note": "ISS board #2"}
+  ],
+  "anomaly_types": ["missing part", "wrong part", "damage", "torque out of spec", "wiring fault", "battery fault", "test failed", "other"]
+}

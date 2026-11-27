@@ -1,2 +1,11 @@
-# Needed only for live capture from the ESP32 receiver
+# Backend (python -m backend)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+fpdf2>=2.7
+
+# Live capture from the ESP32 receiver over USB serial (src/serial_ingest.py)
 pyserial>=3.5
+
+# Tests
+pytest>=8
+httpx>=0.27

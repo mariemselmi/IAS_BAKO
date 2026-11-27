@@ -1,0 +1,60 @@
+/* Motion and status visuals shared by the line app and the dashboard, taken from the
+   BAKO Check Station concept page: running spinner, blinking status dot, press feedback,
+   stage rail, CAN bus feed, fault box, 3D twin frame. Uses the page's colour tokens. */
+
+/* press feedback */
+button{transition:transform .08s,opacity .2s,background-color .2s,border-color .2s,color .2s}
+button:active:not(:disabled){transform:scale(.97)}
+button:disabled{transform:none}
+
+/* step icon: hollow = to do, spinning ring = running, filled = result */
+.ic{width:22px;height:22px;border-radius:50%;border:2px solid var(--line-strong);display:inline-grid;place-items:center;flex:0 0 auto;box-sizing:border-box;vertical-align:middle}
+.ic svg{width:12px;height:12px;stroke:currentColor;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ic.run{border-color:var(--run);border-top-color:transparent;animation:bk-spin .8s linear infinite}
+.ic.wait{border-color:var(--run)}
+.ic.ok{background:var(--pass-fill);border-color:var(--pass-fill);color:#fff;animation:bk-pop .25s ease-out}
+.ic.bad{background:var(--fail-fill);border-color:var(--fail-fill);color:#fff;animation:bk-pop .25s ease-out}
+@keyframes bk-spin{to{transform:rotate(360deg)}}
+@keyframes bk-pop{0%{transform:scale(.6)}70%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+/* status pill with a dot; .run blinks */
+.pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;padding:5px 10px;border-radius:20px;background:var(--raised);border:1px solid var(--line)}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--text-3);flex:0 0 auto}
+.pill.run i{background:var(--run);animation:bk-blink 1s infinite}
+.pill.pass i{background:var(--pass)}
+.pill.fail i{background:var(--fail);animation:bk-blink 1s infinite}
+.pill.fail{border-color:var(--fail-fill)}
+@keyframes bk-blink{50%{opacity:.25}}
+
+/* fault box, slides in */
+.fault{margin:10px 0;padding:12px 14px;border-radius:6px;background:color-mix(in srgb,var(--fail-fill) 12%,transparent);border:1px solid color-mix(in srgb,var(--fail-fill) 45%,transparent);display:grid;gap:4px;animation:bk-in .3s ease-out}
+.fault b{color:var(--fail)}
+@keyframes bk-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+tr.flash td,li.flash{animation:bk-flash 1.6s ease-out}
+@keyframes bk-flash{0%{background:color-mix(in srgb,var(--run-fill) 35%,transparent)}100%{background:transparent}}
+
+/* 3D twin with stage rail */
+.twin{position:relative;background:radial-gradient(ellipse at 50% 60%,#16201c,#07090b 70%);border:1px solid var(--line);border-radius:4px;overflow:hidden;min-height:220px}
+.twin canvas{display:block;cursor:grab}
+.twin canvas:active{cursor:grabbing}
+.twin.twin-off{background:var(--panel);display:grid;place-items:center}
+.twin.twin-off::before{content:"3D view not available on this device";color:var(--text-3);font-size:13px}
+.twin .rail{position:absolute;left:12px;right:12px;bottom:10px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;pointer-events:none}
+.rs{border-top:3px solid #2a3337;padding-top:5px;font-size:11px;color:#8a9a93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color .3s,color .3s}
+.rs b{display:block;font-size:15px;color:#eef3f0;font-weight:600;font-variant-numeric:tabular-nums}
+.rs.cur{border-color:#fff;color:#eef3f0}
+.rs.pass{border-color:#5fd08a}.rs.run{border-color:#f2b341}.rs.fail{border-color:#ff6b5e}
+.rs.cur.run{animation:bk-blink 1s infinite}
+@media (max-width:520px){.rs{font-size:0}.rs b{font-size:13px}}
+
+/* CAN bus feed */
+.bus{height:118px;overflow:hidden;font-family:var(--mono);font-size:11.5px;line-height:1.45;color:#6f8a7c;padding:8px 12px;background:#0b0f11;border:1px solid var(--line);border-radius:4px;font-variant-numeric:tabular-nums}
+.bus div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:bk-in .25s ease-out}
+.bus .hl{color:#5fd08a}.bus .hr{color:#ff6b5e}
+
+/* dialogs and toast */
+dialog[open]{animation:bk-dlg .18s ease-out}
+@keyframes bk-dlg{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+#toast{transition:opacity .2s,transform .2s}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

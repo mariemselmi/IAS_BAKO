@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BAKO Production Dashboard</title>
+<link rel="stylesheet" href="/static/theme.css?v=3">
+<link rel="stylesheet" href="/static/motion.css?v=3">
+<script src="/static/vendor/three.min.js" defer></script>
+<script src="/static/twin.js?v=3" defer></script>
+<style>
+/* Desktop layout. Body 14 px. */
+body{font-size:14px;line-height:1.45}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--page) 90%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:24px;padding:0 24px;min-height:56px}
+header .brand{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:.06em}
+header .brand small{font-family:var(--sans);font-weight:500;font-size:13px;letter-spacing:0;color:var(--text-3);margin-left:8px}
+nav{display:flex;gap:4px;flex:1;overflow-x:auto}
+nav button{background:none;border:0;border-radius:6px;color:var(--text-2);padding:8px 12px;font-weight:500;white-space:nowrap}
+nav button:hover:not(:disabled){background:var(--raised);color:var(--text)}
+nav button.on{background:var(--raised);color:var(--text)}
+#conn{font-size:13px;color:var(--text-2)}
+main{padding:24px;max-width:1440px;margin:0 auto}
+h2{font-size:15px;font-weight:600;margin:28px 0 10px}
+h2:first-child{margin-top:0}
+h2 .muted{font-weight:400;font-size:13px;margin-left:8px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-panel);padding:6px 16px;margin-bottom:12px;overflow-x:auto}
+.panel.pad{padding:16px}
+.bar{display:flex;align-items:center;gap:8px}
+.bar i{display:block;height:8px;border-radius:2px;background:var(--text-3);min-width:2px}
+.bar i.over{background:var(--run)}
+.toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+.toolbar label{display:flex;flex-direction:column;font-size:12px;font-weight:500;color:var(--text-3);gap:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px}
+.grid2>div>h2{margin-top:28px}
+dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 20px;margin:0}
+dl.kv dt{color:var(--text-3)}dl.kv dd{margin:0}
+.kpiv{font-family:var(--display);font-weight:800;font-size:28px;line-height:1}
+/* build view: twin + cockpit */
+.build{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;margin-bottom:8px}
+.build .twin{height:auto;min-height:440px;border-radius:var(--r-panel)}
+.cockpit{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-panel);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cockpit.fail{border-color:var(--fail-fill)}
+.cockpit .display{font-size:44px;margin-top:4px}
+.read{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0}
+.read div{min-width:0}
+.read b{display:block;font-family:var(--display);font-weight:600;font-size:26px;line-height:1.05}
+.read span{font-size:11px;color:var(--text-3);white-space:nowrap}
+.read b.warn{color:var(--run)} .read b.bad{color:var(--fail)}
+.cells{display:flex;gap:2px;align-items:flex-end;height:34px}
+.cells i{flex:1;background:var(--text-3);border-radius:1px;min-width:3px;opacity:.75}
+.steps{list-style:none;margin:0;padding:0;overflow-y:auto;max-height:200px}
+.steps li{display:grid;grid-template-columns:22px 1fr auto;gap:2px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.steps li:last-child{border-bottom:0}
+.steps li>.ic{grid-row:1/span 2}
+.steps .src{grid-column:2;font-size:12px;color:var(--text-3);font-family:var(--mono)}
+.steps .val{grid-row:1/span 2;grid-column:3;text-align:right;font-family:var(--mono);font-size:13px}
+.steps .val small{display:block;color:var(--text-3);font-size:11px}
+.cockpit .bus{border-radius:6px}
+.empty{padding:40px 16px;text-align:center;color:var(--text-3)}
+/* live table */
+#liveTbl td{padding:12px 10px}
+#liveTbl .veh .display{font-size:22px}
+#liveTbl .veh small{display:block;color:var(--text-3);font-size:12px;margin-top:2px}
+#liveTbl .prog{width:180px}
+#liveTbl .bat b{font-weight:600}
+#liveTbl .issues{white-space:nowrap}
+#liveTbl .issues .badge{margin-right:4px}
+@media (max-width:1100px){.build{grid-template-columns:1fr}.build .twin{min-height:320px}.read{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:640px){header{gap:12px;padding:0 16px}main{padding:16px}.cockpit .display{font-size:36px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">BAKO<small>Production</small></div>
+  <nav role="tablist" aria-label="Views">
+    <button data-v="live" class="on">Live</button>
+    <button data-v="vehicles">Vehicles</button>
+    <button data-v="analytics">Analytics</button>
+    <button data-v="alerts">Alerts</button>
+    <button data-v="reports">Reports</button>
+  </nav>
+  <span id="conn" class="dot">Connecting</span>
+</header>
+<main>
+  <!-- O1 live view -->
+  <div data-view="live">
+    <div class="build" id="build">
+      <div class="twin" id="twin" aria-label="3D view of the selected vehicle, drag to turn"><div class="rail" id="rail"></div></div>
+      <div class="cockpit" id="cockpit">
+        <div><div class="eyebrow" id="bEy"></div><div class="display" id="bTi">No vehicle</div></div>
+        <div><span class="pill" id="bSt" role="status"><i></i><span>Waiting</span></span></div>
+        <div class="read" id="bRead"></div>
+        <div class="cells" id="bCells" aria-label="Cell voltages"></div>
+        <ul class="steps" id="bSteps"></ul>
+        <div class="bus" id="bus" aria-label="Live CAN bus and event feed"></div>
+      </div>
+    </div>
+    <h2>In progress<span class="muted">Select a vehicle to show it above</span></h2>
+    <div class="panel"><table id="liveTbl"></table></div>
+    <div class="grid2">
+      <div><h2>Open alerts</h2><div class="panel"><table id="liveAlerts"></table></div></div>
+      <div><h2>Gateways</h2><div class="panel"><table id="gwTbl"></table></div></div>
+    </div>
+  </div>
+
+  <!-- vehicle history -->
+  <div data-view="vehicles" class="hidden">
+    <div class="toolbar"><label>Chassis<input id="vq" placeholder="BK26-0146" autocomplete="off"></label><button class="primary" id="vGo">Find</button></div>
+    <div class="panel"><table id="vList"></table></div>
+    <div id="vDetail"></div>
+  </div>
+
+  <!-- O4 analytics -->
+  <div data-view="analytics" class="hidden">
+    <div class="toolbar">
+      <label>From<input type="date" id="aFrom"></label><label>To<input type="date" id="aTo"></label>
+      <button class="primary" id="aGo">Update</button>
+      <span class="muted">Aggregated by station, phase, shift and time. Individuals are never ranked.</span>
+    </div>
+    <h2>Key performance indicators</h2>
+    <div class="panel"><table id="kpiTbl"></table></div>
+    <div class="grid2">
+      <div><h2>Where: faults by station, phase and type</h2><div class="panel pad" id="aWhere"></div></div>
+      <div><h2>When: by hour and shift</h2><div class="panel pad" id="aWhen"></div></div>
+    </div>
+    <h2>Time: operation time against target</h2><div class="panel pad" id="aTime"></div>
+    <div class="grid2">
+      <div><h2>Stations: waiting time and rework</h2><div class="panel pad" id="aStations"></div></div>
+      <div><h2>Trends by week</h2><div class="panel pad" id="aTrends"></div></div>
+    </div>
+  </div>
+
+  <!-- O2 alerts -->
+  <div data-view="alerts" class="hidden">
+    <div class="toolbar"><label>Show<select id="alStatus"><option value="open">Unacknowledged</option><option value="active">Condition still active</option><option value="all">All</option></select></label>
+      <label>Acknowledge as<select id="ackUser"></select></label></div>
+    <div class="panel"><table id="alTbl"></table></div>
+    <h2>SMS outbox (messages the gateway was asked to send)</h2>
+    <div class="panel"><table id="smsTbl"></table></div>
+  </div>
+
+  <!-- O5 reports -->
+  <div data-view="reports" class="hidden">
+    <div class="grid2">
+      <div><h2>Shift report</h2><div class="panel"><div class="toolbar"><label>Date<input type="date" id="rDate"></label><label>Shift<select id="rShift"></select></label><button class="primary" id="rShiftGo">Open</button></div></div></div>
+      <div><h2>Weekly report (PDF)</h2><div class="panel"><div class="toolbar"><label>ISO week<input id="rWeek" placeholder="2026-W49" size="10"></label><button class="primary" id="rWeekGo">Download</button></div></div></div>
+    </div>
+    <h2>Data export</h2>
+    <div class="panel"><div class="toolbar"><label>From<input type="date" id="eFrom"></label><label>To<input type="date" id="eTo"></label><label>Chassis (optional)<input id="eCh" size="12"></label>
+      <button id="eCsv">CSV event log</button><button id="eXes">IEEE 1849 XES</button></div>
+      <p class="muted">Case = chassis, activity, timestamp, resource = station. Operator IDs are left out of exports.</p></div>
+    <h2>Generated reports</h2>
+    <div class="panel"><table id="repTbl"></table></div>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pct = v => v == null ? "-" : (v*100).toFixed(1) + " %";
+const num = (v, d=1) => v == null ? "-" : Number(v).toFixed(d);
+const tm = ts => ts ? new Date(ts).toLocaleString([], {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "-";
+const ago = ts => { if(!ts) return "-"; const s = (Date.now() - new Date(ts))/1000; return s < 90 ? `${s|0} s` : s < 5400 ? `${s/60|0} min` : `${(s/3600).toFixed(1)} h`; };
+const localDate = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+async function api(p, opts={}){ const r = await fetch(p, {headers:{"Content-Type":"application/json"}, ...opts, body: opts.body?JSON.stringify(opts.body):undefined}); const j = await r.json().catch(()=>null); if(!r.ok) throw new Error(j && j.detail ? j.detail : `HTTP ${r.status}`); return j; }
+let CFG, view = "live", buildSid = null, TWIN = null, knownAlerts = null, busLines = [], buildGw = null;
+const ICON = {ok:'<svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.3 2.3 4.7-5"/></svg>', bad:'<svg viewBox="0 0 12 12"><path d="M6 2.5v4.2M6 9.3v.1"/></svg>'};
+const icon = st => st==="ok" ? `<span class="ic ok">${ICON.ok}</span>` : st==="not_ok" ? `<span class="ic bad">${ICON.bad}</span>` :
+  st==="in_progress" ? `<span class="ic run"></span>` : st==="unconfirmed" ? `<span class="ic wait"></span>` : `<span class="ic"></span>`;
+
+// ---- build view: 3D twin, cockpit with live readouts, steps and bus feed ----
+let lastSessions = [];
+const mrail = (phases, cur) => `<div class="mrail" aria-hidden="true">${[0,1,2,3,4,5,6].map(p => `<i class="${(phases||{})[p]||""}${p===cur?" cur":""}"></i>`).join("")}</div>`;
+async function loadBuild(sessions){
+  if(buildSid == null || !sessions.some(s => s.session_id === buildSid)) buildSid = sessions.length ? sessions[0].session_id : null;
+  if(!TWIN && window.BakoTwin) TWIN = BakoTwin.mount($("#twin")) || "off";
+  if(buildSid == null){
+    $("#bTi").textContent = "No vehicle"; $("#bEy").textContent = "Nothing in progress"; $("#bSteps").innerHTML = ""; $("#bRead").innerHTML = ""; $("#bCells").innerHTML = "";
+    setPill("", "Open a session from the line app"); if(TWIN && TWIN !== "off") TWIN.update({phase:0, phases:{}}); return;
+  }
+  const r = await api(`/api/sessions/${buildSid}`), s = r.session;
+  const states = window.BakoTwin ? BakoTwin.phaseStates(r) : {}, here = states[s.phase];
+  buildGw = (r.bindings.filter(b => !b.to_ts).pop() || {}).gateway_id || null;
+  if(TWIN && TWIN !== "off") TWIN.update({phase:s.phase, phases:states});
+  if(window.BakoTwin) BakoTwin.rail($("#rail"), s.phase, states);
+  $("#cockpit").className = "cockpit" + (here==="fail" ? " fail" : "");
+  $("#bEy").textContent = `Phase ${s.phase} of 6, ${r.phase_name}${s.station ? ", station " + s.station : ""}`;
+  $("#bTi").textContent = s.chassis_id;
+  setPill(here==="fail"?"fail":here==="run"?"run":here==="pass"?"pass":"", here==="fail"?"Fault found, fix before moving on":here==="run"?"Step running":here==="pass"?"Phase confirmed":"Ready");
+  renderReadouts(sessions.find(x => x.session_id === buildSid));
+  const steps = r.route.filter(o => o.phase === s.phase);
+  $("#bSteps").innerHTML = steps.map(o => { const c = o.confirmations[o.confirmations.length-1];
+    const val = c ? (c.value != null ? `${c.value} ${esc(c.unit||"")}` : (c.result==="ok"?"Confirmed":"Not OK")) : o.status==="in_progress" ? "Running" : "";
+    return `<li>${icon(o.status)}<div>${esc(o.name)}</div><div class="src">${esc(o.code)}</div><div class="val">${val}${c&&c.by?`<small>${esc(c.by)}</small>`:""}</div></li>`; }).join("");
+}
+function renderReadouts(s){
+  const g = (s && s.gateway) || {}, b = g.battery || {}, se = g.sensors || {}, t = CFG.thresholds;
+  const v12 = se.v12_dc_out, spread = b.cell_spread_mv, temp = b.temp_max_c;
+  const cell = (val, label, cls) => `<div><b class="${cls||""}">${val}</b><span>${label}</span></div>`;
+  $("#bRead").innerHTML = cell(num(b.pack_v), "Pack V") + cell(b.soc ?? "-", "Charge %") +
+    cell(spread ?? "-", "Spread mV", spread > t.cell_spread_mv ? "warn" : "") +
+    cell(temp ?? "-", "Battery C", temp >= t.temp_critical_c ? "bad" : temp >= t.temp_warning_c ? "warn" : "") +
+    cell(num(v12, 1), "12 V out", v12 != null && (v12 < t.dcdc_min_v || v12 > t.dcdc_max_v) && v12 >= t.dcdc_present_v ? "bad" : "");
+  const cells = Object.keys(b).filter(k => /^cell_\d+_mv$/.test(k)).sort((x,y)=>parseInt(x.slice(5))-parseInt(y.slice(5)));
+  const vals = cells.map(k => b[k]), lo = Math.min(...vals), hi = Math.max(...vals);
+  $("#bCells").innerHTML = cells.map(k => `<i style="height:${hi>lo?25+75*(b[k]-lo)/(hi-lo):60}%" title="Cell ${k.slice(5,-3)}: ${b[k]} mV"></i>`).join("");
+}
+function setPill(cls, text){ $("#bSt").className = "pill " + cls; $("#bSt").querySelector("span").textContent = text; }
+function busLog(text, cls){
+  const ts = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  busLines.push(`<div class="${cls||""}">${ts}  ${esc(text)}</div>`); busLines = busLines.slice(-7); $("#bus").innerHTML = busLines.join("");
+}
+function onFeed(m){
+  if(view !== "live" || buildSid == null) return;
+  const d = m.data || {};
+  if(m.type === "frame" && d.session_id === buildSid){
+    if(Date.now() - (onFeed.lastFrame || 0) < 1000) return;   // one raw frame per second keeps events readable
+    onFeed.lastFrame = Date.now(); busLog(`rx ${d.can_id}  ${d.data}`); }
+  else if(m.type === "event" && d.session_id === buildSid && !["alert","gap"].includes(d.type))
+    busLog(`${d.type.replace("_"," ")}${d.operation?" "+d.operation:""}${(d.payload||{}).result?" -> "+d.payload.result:""}`, "hl");
+  else if(m.type === "alert" && (d.session_id === buildSid) && !d.cleared_at && !d.acknowledged_at) busLog(`ALERT ${d.message}`, "hr");
+  else if(m.type === "gap" && d.session_id === buildSid) busLog(`gap: ${d.detail}`, "hr");
+}
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => go(b.dataset.v));
+function go(v){
+  view = v;
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  document.querySelectorAll("[data-view]").forEach(d => d.classList.toggle("hidden", d.dataset.view !== v));
+  ({live:loadLive, vehicles:loadVehicles, analytics:loadAnalytics, alerts:loadAlerts, reports:loadReports})[v]();
+  try{ history.replaceState(null, "", "#" + v); }catch(e){}
+}
+
+// ---- live ----
+async function loadLive(){
+  const L = await api("/api/live");
+  lastSessions = L.sessions;
+  if(buildSid == null || !L.sessions.some(s => s.session_id === buildSid)) buildSid = L.sessions.length ? L.sessions[0].session_id : null;
+  loadBuild(L.sessions).catch(() => {});
+  const rows = L.sessions.map(s => {
+    const g = s.gateway || {}, b = g.battery || {}, se = g.sensors || {};
+    const alarm = L.alerts.some(a => a.session_id === s.session_id && !a.acknowledged_at && a.severity === "critical");
+    const online = g.connected && g.last_line_age_s != null && g.last_line_age_s < 10;
+    const gw = !s.gateway_id ? `<span class="muted">None</span>` : `<span class="dot ${online?"ok":"bad"}"><span class="mono">${esc(s.gateway_id)}</span></span>${online?"":`<div class="muted" style="font-size:12px;margin-left:15px">offline</div>`}`;
+    const fault = b.fault_level || b.error_code;
+    const bat = b.pack_v == null ? `<span class="muted">No data</span>` :
+      `<b>${num(b.pack_v)} V</b>, ${b.soc ?? "-"} %<div class="muted" style="font-size:12px">${fault?`<span class="bad">Fault ${b.fault_level}/${b.error_code}</span>`:`spread ${b.cell_spread_mv ?? "-"} mV`}</div>`;
+    const issues = (s.open_anomalies?`<span class="badge" title="open faults">${s.open_anomalies}</span>`:"") + (s.open_gaps?`<span class="badge warn" title="data gaps">${s.open_gaps}</span>`:"");
+    return `<tr class="click${s.session_id===buildSid?" sel":""}${alarm?" alarm":""}" data-sid="${s.session_id}" tabindex="0">
+      <td class="veh"><span class="display">${esc(s.chassis_id)}</span><small>${esc(s.model)}</small></td>
+      <td class="prog">${mrail(s.phases, s.phase)}<div class="mrail-l">Phase ${s.phase}, ${esc(s.phase_name)}</div></td>
+      <td>${esc(s.station||"-")}</td><td class="bat">${bat}</td><td class="n">${num(se.v12_dc_out,2)}</td><td>${gw}</td>
+      <td class="issues">${issues || `<span class="muted">None</span>`}</td><td class="n">${ago(s.last_event_at)}</td>
+      <td><a href="#" data-ch="${esc(s.chassis_id)}">Record</a></td></tr>`;
+  }).join("");
+  $("#liveTbl").innerHTML = `<thead><tr><th>Vehicle</th><th>Progress</th><th>Station</th><th>Battery</th><th class="n">12 V</th><th>Gateway</th><th>Issues</th><th class="n">Last event</th><th></th></tr></thead><tbody>` +
+    (rows || `<tr><td colspan="9" class="empty">No vehicle in progress. Open a session from the line app at /app.</td></tr>`) + `</tbody>`;
+  $("#liveTbl").querySelectorAll("tr[data-sid]").forEach(tr => {
+    const pick = () => { const sid = +tr.dataset.sid; if(sid !== buildSid){ buildSid = sid; busLines = []; $("#bus").innerHTML = ""; } loadLive(); window.scrollTo({top:0, behavior:"smooth"}); };
+    tr.onclick = e => { if(!e.target.closest("a,button")) pick(); };
+    tr.onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); pick(); } };
+  });
+  $("#liveTbl").querySelectorAll("[data-ch]").forEach(a => a.onclick = e => { e.preventDefault(); showVehicle(a.dataset.ch); });
+  $("#liveAlerts").innerHTML = alertRows(L.alerts.filter(a => !a.acknowledged_at), false) || `<tr><td class="empty">No open alert.</td></tr>`;
+  bindAck($("#liveAlerts"));
+  $("#gwTbl").innerHTML = `<tr><th>Gateway</th><th>Link</th><th>Session</th><th class="n">Frames</th><th class="n">Last line</th><th class="n">Bad lines</th></tr>` +
+    L.gateways.map(g => `<tr><td class="mono">${esc(g.gateway_id)}</td><td><span class="dot ${g.connected?"ok":""}">${g.connected?"Connected":"Offline"}</span></td><td>${g.bound_session ?? "-"}</td><td class="n">${(g.frames ?? 0).toLocaleString()}</td><td class="n">${g.last_line_age_s==null?"-":ago(new Date(Date.now()-g.last_line_age_s*1000).toISOString())}</td><td class="n ${g.invalid_lines?"warn":""}">${g.invalid_lines ?? 0}</td></tr>`).join("");
+}
+function alertRows(list, full){
+  const first = knownAlerts === null; knownAlerts = knownAlerts || new Set();
+  return list.map(a => { const fresh = !first && !knownAlerts.has(a.alert_id); knownAlerts.add(a.alert_id);
+    return `<tr class="${a.severity==="critical" && !a.acknowledged_at?"alarm":""}${fresh?" flash":""}"><td>${tm(a.raised_at)}</td><td class="mono">${esc(a.chassis_id||a.gateway_id||"-")}</td>
+    <td><strong>${esc(a.label||a.rule)}</strong></td><td>${esc(a.message)}</td><td class="${a.severity==="critical"?"bad":"warn"}">${esc(a.severity)}</td>
+    <td>${a.sms_sent?"sent":"-"}</td>${full?`<td>${a.cleared_at?tm(a.cleared_at):"active"}</td><td>${a.escalated_at?tm(a.escalated_at):"-"}</td>`:""}
+    <td>${a.acknowledged_at?`${tm(a.acknowledged_at)} ${esc(a.acknowledged_by)}`:`<button data-ack="${a.alert_id}">Acknowledge</button>`}</td></tr>`; }).join("");
+}
+function bindAck(root){ root.querySelectorAll("[data-ack]").forEach(b => b.onclick = async () => {
+  const u = $("#ackUser").value; b.disabled = true;
+  try{ await api(`/api/alerts/${b.dataset.ack}/ack`, {method:"POST", body:{user:u}}); refresh(); }catch(e){ alert(e.message); b.disabled = false; } }); }
+
+// ---- vehicles ----
+async function loadVehicles(){
+  const list = await api("/api/vehicles?q=" + encodeURIComponent($("#vq").value.trim()));
+  $("#vList").innerHTML = `<tr><th>Chassis</th><th>Model</th><th>Status</th><th>Phase</th><th>Opened</th><th>Completed</th></tr>` +
+    (list.map(v => `<tr><td><a href="#" data-ch="${esc(v.chassis_id)}" class="mono">${esc(v.chassis_id)}</a></td><td>${esc(v.model)}</td><td class="${v.status==="complete"?"ok":""}">${esc(v.status)}</td><td>${v.phase}</td><td>${tm(v.opened_at)}</td><td>${tm(v.closed_at)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">No vehicle.</td></tr>`);
+  $("#vList").querySelectorAll("[data-ch]").forEach(a => a.onclick = e => { e.preventDefault(); showVehicle(a.dataset.ch); });
+}
+$("#vGo").onclick = async () => { const q = $("#vq").value.trim(); await loadVehicles(); if(q) showVehicle(q).catch(()=>{}); };
+$("#vq").onkeydown = e => { if(e.key === "Enter") $("#vGo").click(); };
+async function showVehicle(ch){
+  if(view !== "vehicles"){ go("vehicles"); }
+  let h; try{ h = await api(`/api/vehicles/${encodeURIComponent(ch)}/history`); }catch(e){ $("#vDetail").innerHTML = `<p class="bad">${esc(e.message)}</p>`; return; }
+  $("#vDetail").innerHTML = h.sessions.slice().reverse().map(r => {
+    const s = r.session, c = r.completeness;
+    const route = r.route.map(o => { const i = o.instances[o.instances.length-1] || {}, cf = o.confirmations[o.confirmations.length-1] || {};
+      return `<tr><td>${o.phase}</td><td class="mono">${esc(o.code)}</td><td>${esc(o.name)}</td><td>${esc(o.station)}</td><td>${tm(i.start)}</td><td>${tm(i.end)}</td>
+        <td class="n">${i.duration_s!=null?(i.duration_s/60).toFixed(1):"-"} / ${o.target_min}</td><td class="n">${o.instances.length}</td><td>${cf.value!=null?`${cf.value} ${esc(cf.unit||"")}`:""}</td><td>${esc(cf.by||"")}</td>
+        <td class="${o.status==="ok"?"ok":o.status==="not_ok"?"bad":o.status==="pending"?"muted":"warn"}">${esc(o.status.replace("_"," "))}</td></tr>`; }).join("");
+    const an = r.anomalies.map(a => `<tr><td>${a.id}</td><td>${esc(a.type)}</td><td>${esc(a.station||"")}</td><td>${a.phase??"-"}</td><td>${esc(a.description||"")}${a.photo?` <a href="/api/${esc(a.photo)}" target="_blank" rel="noopener">photo</a>`:""}${a.interventions.map(i=>`<div class="muted">${tm(i.created_at)} ${esc(i.action)} (re-check ${esc(i.recheck_result)})</div>`).join("")}</td><td>${tm(a.opened_at)}</td><td class="${a.closed_at?"ok":"bad"}">${a.closed_at?tm(a.closed_at):"open"}</td></tr>`).join("");
+    const bat = Object.entries(r.battery).filter(([k])=>k!=="cells_last").map(([k,v]) => `<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n">${v.lo}</td><td class="n">${v.hi}</td><td class="n">${v.last}</td><td>${esc(v.unit||"")}</td></tr>`).join("");
+    const sen = Object.entries(r.sensors).map(([k,v]) => `<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n">${v.lo}</td><td class="n">${v.hi}</td><td class="n">${v.last}</td><td>${esc(v.unit||"")}</td></tr>`).join("");
+    const ev = r.events.map(e => { const p = e.payload||{}; const d = p.result || p.message || p.anomaly_type || p.action || p.detail || p.gateway || (e.type==="phase_change"?`${p.from} to ${p.to}`:"");
+      return `<tr><td>${tm(e.timestamp)}</td><td>${esc(e.type)}</td><td>${e.phase??""}</td><td class="mono">${esc(e.operation||"")}</td><td>${esc(e.station||"")}</td><td>${esc(e.shift||"")}</td><td>${esc(e.user||e.resource||"")}</td><td>${esc(d)}</td></tr>`; }).join("");
+    return `<h2>Build record: <span class="mono">${esc(s.chassis_id)}</span>, session ${s.session_id}</h2>
+    <div class="panel pad"><dl class="kv"><dt>Model</dt><dd>${esc(s.model)}</dd><dt>Status</dt><dd class="${s.status==="complete"?"ok":""}">${s.status==="complete"?"production complete, ready for verification":"in progress, phase "+s.phase+" "+esc(r.phase_name)}</dd>
+      <dt>Opened</dt><dd>${tm(s.opened_at)} by ${esc(s.manager_id)}</dd><dt>Completed</dt><dd>${tm(s.closed_at)}</dd><dt>Lead time</dt><dd>${r.lead_time_h!=null?r.lead_time_h+" h":"-"}</dd>
+      <dt>Gateways</dt><dd>${r.bindings.map(b=>`<span class="mono">${esc(b.gateway_id)}</span> ${tm(b.from_ts)} to ${tm(b.to_ts)}`).join("<br>")||"none"}</dd>
+      <dt>CAN capture</dt><dd>${pct(r.can_capture.rate)} (${r.can_capture.received} of ${r.can_capture.expected} BMS frames)</dd>
+      <dt>Record complete</dt><dd class="${c?(c.complete?"ok":"bad"):""}">${c?(c.complete?"yes":"no: "+esc(c.reasons.join("; "))):"session still open"}</dd>
+      <dt>Documents</dt><dd><a href="/api/vehicles/${encodeURIComponent(s.chassis_id)}/record.pdf?session=${s.session_id}" target="_blank" rel="noopener">Build record PDF</a>, <a href="/api/export/frames.csv?session=${s.session_id}">raw CAN frames CSV</a>, <a href="/api/export/xes?chassis=${encodeURIComponent(s.chassis_id)}">XES</a></dd></dl></div>
+    <div class="panel"><table><tr><th>Ph</th><th>Operation</th><th>Name</th><th>Station</th><th>Start</th><th>End</th><th class="n">Min / target</th><th class="n">Runs</th><th>Value</th><th>Confirmed by</th><th>Result</th></tr>${route}</table></div>
+    <div class="panel"><table><tr><th>#</th><th>Anomaly</th><th>Station</th><th>Ph</th><th>Description and interventions</th><th>Opened</th><th>Closed</th></tr>${an||`<tr><td colspan="7" class="muted">No anomaly.</td></tr>`}</table></div>
+    <div class="grid2"><div class="panel"><table><tr><th>Battery signal</th><th class="n">Samples</th><th class="n">Min</th><th class="n">Max</th><th class="n">Last</th><th>Unit</th></tr>${bat||`<tr><td colspan="6" class="muted">No battery data.</td></tr>`}</table></div>
+      <div class="panel"><table><tr><th>Board sensor</th><th class="n">Samples</th><th class="n">Min</th><th class="n">Max</th><th class="n">Last</th><th>Unit</th></tr>${sen||`<tr><td colspan="6" class="muted">No sensor data.</td></tr>`}</table></div></div>
+    <div class="panel"><table><tr><th>Raised</th><th>Where</th><th>Alert</th><th>Message</th><th>Severity</th><th>SMS</th><th>Acknowledged</th></tr>${alertRows(r.alerts.map(a=>({...a, label:a.rule})), false)||`<tr><td colspan="7" class="muted">No alert.</td></tr>`}</table></div>
+    <div class="panel"><table><tr><th>Gap</th><th>Key</th><th>From</th><th>To</th><th>Detail</th></tr>${r.gaps.map(g=>`<tr><td>${esc(g.kind)}</td><td class="mono">${esc(g.key||"")}</td><td>${tm(g.started_at)}</td><td>${tm(g.ended_at)}</td><td>${esc(g.detail||"")}</td></tr>`).join("")||`<tr><td colspan="5" class="muted">No data gap flagged.</td></tr>`}</table></div>
+    <div class="panel"><table><tr><th>Time</th><th>Event</th><th>Ph</th><th>Operation</th><th>Station</th><th>Shift</th><th>By</th><th>Detail</th></tr>${ev}</table></div>`;
+  }).join("");
+  bindAck($("#vDetail"));
+}
+
+// ---- analytics ----
+function bars(obj, opts={}){
+  const e = Object.entries(obj||{}); if(!e.length) return `<p class="muted">No data in this period.</p>`;
+  const max = Math.max(...e.map(([,v]) => v||0), 1);
+  return `<table>${e.map(([k,v]) => `<tr><td style="width:30%">${esc(opts.label?opts.label(k):k)}</td><td><div class="bar"><i style="width:${(v||0)/max*100}%"></i><span>${v}</span></div></td></tr>`).join("")}</table>`;
+}
+async function loadAnalytics(){
+  const q = `from=${$("#aFrom").value}&to=${$("#aTo").value}`;
+  const [K, W, H, T, R] = await Promise.all([api("/api/kpi?"+q), api("/api/analytics/where?"+q), api("/api/analytics/when?"+q), api("/api/analytics/time?"+q), api("/api/analytics/trends?"+q)]);
+  const k = K.kpis, st = x => x.mean==null ? "-" : `${x.mean} (n ${x.n})`;
+  const row = (name, val, def, grp) => `<tr><td>${name}</td><td class="n"><span class="kpiv" style="font-size:22px">${val}</span></td><td class="muted">${def}</td><td>${grp}</td></tr>`;
+  $("#kpiTbl").innerHTML = `<tr><th>KPI</th><th class="n">Value</th><th>Definition</th><th>Detail</th></tr>` +
+    row("Traceability coverage", pct(k.traceability_coverage.value), "vehicles with complete record / vehicles completed", `${k.traceability_coverage.numerator} of ${k.traceability_coverage.denominator}${k.traceability_coverage.incomplete.length?": "+k.traceability_coverage.incomplete.map(i=>esc(i.chassis)+" ("+esc(i.reasons.join("; "))+")").join(", "):""}`) +
+    row("CAN capture rate", pct(k.can_capture_rate.value), "BMS frames received / frames expected", k.can_capture_rate.by_session.map(s=>`${esc(s.chassis)} ${pct(s.rate)}`).join(", ")) +
+    row("Data gaps flagged", pct(k.data_gaps_flagged.value), "gaps flagged / gaps detected", `${k.data_gaps_flagged.flagged} of ${k.data_gaps_flagged.detected}`) +
+    row("Lead time", k.lead_time.mean==null?"-":k.lead_time.mean+" h", "completion time - session start", k.lead_time.by_vehicle.map(v=>`${esc(v.chassis)} ${v.hours} h`).join(", ")) +
+    row("Operation time", "", "operation end - operation start", "see table below") +
+    row("Waiting time", "", "next operation start - previous operation end", "see stations") +
+    row("Rework ratio", pct(k.rework_ratio.value), "repeated operations / operations performed", `${k.rework_ratio.repeated} of ${k.rework_ratio.performed}`) +
+    row("First-pass rate", pct(k.first_pass_rate.value), "phases completed without anomaly / phases completed", Object.entries(k.first_pass_rate.by_phase).map(([p,v])=>`phase ${p} ${pct(v)}`).join(", ")) +
+    row("Mean time to fix", k.mean_time_to_fix.mean==null?"-":k.mean_time_to_fix.mean+" min", "intervention closed - anomaly opened", Object.entries(k.mean_time_to_fix.by_type).map(([t,v])=>`${esc(t)} ${v.mean} min`).join(", ") + ` ${k.mean_time_to_fix.open} open now`) +
+    row("Alert response time", k.alert_response_time.mean==null?"-":k.alert_response_time.mean+" min", "alert acknowledged - alert raised", Object.entries(k.alert_response_time.by_type).map(([t,v])=>`${esc(t)} ${v.mean} min`).join(", ") + ` ${k.alert_response_time.unacknowledged} unacknowledged now`) +
+    row("Work in progress", k.work_in_progress.value, "open sessions", "live");
+  $("#aWhere").innerHTML = `<p>${W.anomalies} anomalies</p><h2>By station</h2>${bars(W.by_station)}<h2>By phase</h2>${bars(W.by_phase, {label:p=>"phase "+p})}<h2>By type</h2>${bars(W.by_type)}`;
+  $("#aWhen").innerHTML = `<h2>Anomalies by hour</h2>${bars(H.anomalies_by_hour, {label:h=>h+":00"})}<h2>Anomalies by shift</h2>${bars(H.anomalies_by_shift)}<h2>Operations by shift</h2>${bars(H.operations_by_shift)}`;
+  const ops = Object.entries(T.operation_vs_target);
+  const maxR = Math.max(...ops.map(([,v])=>v.vs_target||0), 1);
+  $("#aTime").innerHTML = ops.length ? `<p>Bottleneck station: <strong>${esc(T.bottleneck_station||"-")}</strong> (most operation time in the period).</p><table><tr><th>Operation</th><th class="n">Runs</th><th class="n">Mean min</th><th class="n">Target min</th><th>Mean / target</th></tr>` +
+    ops.map(([op,v]) => `<tr><td class="mono">${esc(op)}</td><td class="n">${v.n}</td><td class="n">${v.mean}</td><td class="n">${v.target_min??"-"}</td><td><div class="bar"><i class="${v.vs_target>1?"over":""}" style="width:${(v.vs_target||0)/maxR*60}%"></i><span class="${v.vs_target>1?"warn":""}">${pct(v.vs_target)}</span></div></td></tr>`).join("") + `</table>` : `<p class="muted">No finished operation in this period.</p>`;
+  const stations = [...new Set([...Object.keys(k.waiting_time.by_station), ...Object.keys(k.rework_ratio.by_station), ...Object.keys(k.operation_time.by_station)])].sort();
+  $("#aStations").innerHTML = stations.length ? `<table><tr><th>Station</th><th class="n">Mean operation min</th><th class="n">Mean wait min</th><th class="n">Rework ratio</th></tr>` +
+    stations.map(s => `<tr><td>${esc(s)}</td><td class="n">${st(k.operation_time.by_station[s]||{})}</td><td class="n">${st(k.waiting_time.by_station[s]||{})}</td><td class="n">${pct(k.rework_ratio.by_station[s])}</td></tr>`).join("") + `</table>` : `<p class="muted">No data.</p>`;
+  const wk = Object.entries(R.weeks);
+  $("#aTrends").innerHTML = wk.length ? `<table><tr><th>Week</th><th class="n">Completed</th><th class="n">Mean lead time h</th><th class="n">Anomalies</th><th class="n">Alerts</th></tr>` +
+    wk.map(([w,v]) => `<tr><td>${esc(w)}</td><td class="n">${v.completed}</td><td class="n">${v.lead_time_h??"-"}</td><td class="n">${v.anomalies}</td><td class="n">${v.alerts}</td></tr>`).join("") + `</table><p class="muted">About one vehicle per day: trends need several weeks of data.</p>` : `<p class="muted">No data.</p>`;
+}
+$("#aGo").onclick = () => loadAnalytics().catch(e => alert(e.message));
+
+// ---- alerts ----
+async function loadAlerts(){
+  const list = await api("/api/alerts?status=" + $("#alStatus").value);
+  $("#alTbl").innerHTML = `<tr><th>Raised</th><th>Where</th><th>Alert</th><th>Message</th><th>Severity</th><th>SMS</th><th>Condition</th><th>Escalated</th><th>Acknowledged</th></tr>` + (alertRows(list, true) || `<tr><td colspan="9" class="muted">None.</td></tr>`);
+  bindAck($("#alTbl"));
+  const sms = await api("/api/sms?limit=50");
+  $("#smsTbl").innerHTML = `<tr><th>Queued</th><th>To</th><th>Text</th><th>Reason</th><th>Gateway</th><th>Status</th></tr>` +
+    (sms.map(m => `<tr><td>${tm(m.created_at)}</td><td class="mono">${esc(m.phone)}</td><td>${esc(m.text)}</td><td>${esc(m.reason)}</td><td class="mono">${esc(m.gateway_id||"-")}</td><td class="${m.status==="error"?"bad":m.status==="queued"?"warn":""}">${esc(m.status)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">None.</td></tr>`);
+}
+$("#alStatus").onchange = loadAlerts;
+
+// ---- reports ----
+async function loadReports(){
+  const list = await api("/api/reports");
+  $("#repTbl").innerHTML = `<tr><th>Type</th><th>Period / vehicle</th><th>Generated</th><th>Open</th></tr>` +
+    (list.map(r => { let href = "";
+      if(r.type === "vehicle"){ const [ch, sid] = r.period_key.split("#"); href = `/api/vehicles/${encodeURIComponent(ch)}/record.pdf?session=${sid}`; }
+      else if(r.type === "shift"){ const [d, s] = r.period_key.split("/"); href = `/api/reports/shift?date=${d}&shift=${s}&format=html`; }
+      else href = `/api/reports/weekly?week=${encodeURIComponent(r.period_key)}&format=pdf`;
+      return `<tr><td>${esc(r.type)}</td><td class="mono">${esc(r.period_key)}</td><td>${tm(r.created_at)}</td><td><a href="${href}" target="_blank" rel="noopener">open</a></td></tr>`; }).join("") || `<tr><td colspan="4" class="muted">No report yet. Vehicle records are generated at completion, shift reports at the end of each shift, weekly reports on Monday.</td></tr>`);
+}
+$("#rShiftGo").onclick = () => window.open(`/api/reports/shift?date=${$("#rDate").value}&shift=${$("#rShift").value}&format=html`, "_blank", "noopener");
+$("#rWeekGo").onclick = () => window.open(`/api/reports/weekly?week=${encodeURIComponent($("#rWeek").value.trim())}&format=pdf`, "_blank", "noopener");
+function exportUrl(kind){ const p = new URLSearchParams(); if($("#eFrom").value) p.set("from", $("#eFrom").value); if($("#eTo").value) p.set("to", $("#eTo").value); if($("#eCh").value.trim()) p.set("chassis", $("#eCh").value.trim()); return `/api/export/${kind}?${p}`; }
+$("#eCsv").onclick = () => location.href = exportUrl("csv");
+$("#eXes").onclick = () => location.href = exportUrl("xes");
+
+// ---- live updates ----
+let pending = null;
+function refresh(){ if(pending) return; pending = setTimeout(() => { pending = null; if(document.hidden) return;
+  if(view === "live") loadLive().catch(()=>{}); else if(view === "alerts") loadAlerts().catch(()=>{}); }, 1000); }
+function connect(){
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onopen = () => { $("#conn").textContent = "Live"; $("#conn").className = "dot ok"; };
+  ws.onmessage = ev => { const m = JSON.parse(ev.data); onFeed(m); if(m.type === "frame") return; if(m.type === "alert" && m.data && m.data.severity === "critical" && !m.data.acknowledged_at && !m.data.cleared_at) document.title = "ALERT - BAKO production"; refresh(); };
+  ws.onclose = () => { $("#conn").textContent = "Reconnecting"; $("#conn").className = "dot bad"; setTimeout(connect, 3000); };
+}
+
+(async () => {
+  CFG = await api("/api/config");
+  const today = new Date(), weekAgo = new Date(Date.now() - 27*864e5);
+  $("#aFrom").value = localDate(weekAgo); $("#aTo").value = localDate(today); $("#rDate").value = localDate(today);
+  $("#rShift").innerHTML = CFG.shifts.map(s => `<option>${esc(s.id)}</option>`).join("");
+  $("#ackUser").innerHTML = CFG.users.filter(u => u.role !== "operator").map(u => `<option value="${esc(u.id)}">${esc(u.name)}</option>`).join("");
+  const d = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())); const day = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - day);
+  const y = d.getUTCFullYear(), w = Math.ceil(((d - Date.UTC(y,0,1))/864e5 + 1)/7); $("#rWeek").value = `${y}-W${String(w).padStart(2,"0")}`;
+  connect();
+  go((location.hash || "#live").slice(1) in {live:1,vehicles:1,analytics:1,alerts:1,reports:1} ? location.hash.slice(1) || "live" : "live");
+  setInterval(() => { if(!document.hidden && view === "live") loadLive().catch(()=>{}); }, 5000);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) document.title = "BAKO Production Dashboard"; });
+})().catch(e => { document.querySelector("main").innerHTML = `<p class="bad">Cannot reach the BAKO server: ${esc(e.message)}</p>`; });
+</script>
+</body>
+</html>
